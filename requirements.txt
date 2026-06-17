@@ -1,0 +1,10 @@
+pandas
+faker
+sentence-transformers
+faiss-cpu
+google-genai
+fastapi
+uvicorn
+streamlit
+pytest
+python-dotenv

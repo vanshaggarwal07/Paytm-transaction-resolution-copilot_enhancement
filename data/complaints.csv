@@ -1,0 +1,101 @@
+COMPLAINT_ID,ORDER_ID,CUSTOMER_COMPLAINT,TRUE_ISSUE
+CMP000001,ORD000001,"Paytm shows refund initiated for ₹12,798 but my passbook has no credit entry after 54 hours.",Refund Pending
+CMP000002,ORD000002,"I'm a merchant — successful NetBanking payments of ₹22,427 from 14 days ago still show settlement pending in my dashboard.",Settlement Delay
+CMP000003,ORD000003,"I panicked earlier but ₹7,186 UPI payment went through fine for ORD6427 — bank and app both show success now.",Normal Success
+CMP000004,ORD000004,"Money got deducted from my account — ₹12,637 via Card — but merchant dashboard still shows unpaid. This is ridiculous, it's been 10 days.",Amount Debited but Merchant Not Credited
+CMP000005,ORD000005,"Txn shows success on my side for ₹3,234 (UPI) yet the shop didn't get the credit. Customer care at the store is asking me to pay again.",Amount Debited but Merchant Not Credited
+CMP000006,ORD000006,"Everything looks fine: ₹20,737 debited on Wallet, order delivered 3 days ago. Store confirmed payment received. No complaint really.",Normal Success
+CMP000007,ORD000007,I have the debit SMS for ₹414 on UPI but order ORD4395 is stuck because seller says amount not credited to them.,Amount Debited but Merchant Not Credited
+CMP000008,ORD000008,"You guys initiated a refund for ₹23,670 on Card 10 days ago but I still don't see it in my bank account.",Refund Pending
+CMP000009,ORD000009,"Failed payment on ₹16,653 (NetBanking) for ORD9959 but amount looks blocked in my UPI app. Will it come back?",Failed Payment
+CMP000010,ORD000010,"Still waiting on ₹24,555 refund from ORD6890. App says initiated, bank says no incoming credit on UPI.",Refund Pending
+CMP000011,ORD000011,"Customer disputed ₹1,977 via bank — reason merchandise not received. I have delivery proof for ORD9725 though.",Chargeback / Dispute
+CMP000012,ORD000012,"Status shows refund completed for ₹8,152 yet my NetBanking balance is unchanged. What reference number should I give my bank?",Refund Completed
+CMP000013,ORD000013,"Our daily reconciliation has a ₹23,277 variance on ORD9979 date. Ledger says success but settlement file missing that txn.",Reconciliation Mismatch
+CMP000014,ORD000014,"Payment failed for ₹7,494 on Card but I got a debit SMS anyway for order ORD5382. Please check.",Failed Payment
+CMP000015,ORD000015,"Money got deducted from my account — ₹3,151 via Wallet — but merchant dashboard still shows unpaid. This is ridiculous, it's been 14 days.",Amount Debited but Merchant Not Credited
+CMP000016,ORD000016,"Txn shows success on my side for ₹12,072 (Wallet) yet the shop didn't get the credit. Customer care at the store is asking me to pay again.",Amount Debited but Merchant Not Credited
+CMP000017,ORD000017,"Merchant here: multiple UPI txns totaling around ₹17,395 are credited to customers but settlement to my bank is delayed 12 days.",Settlement Delay
+CMP000018,ORD000018,"Visa chargeback opened on ₹9,973 payment. Merchant account shows reversal debit — what's the dispute case ID?",Chargeback / Dispute
+CMP000019,ORD000019,"Why is my ₹17,989 UPI payment still pending after 65 hours? I'm scared I'll get charged twice if I retry.",UPI Pending
+CMP000020,ORD000020,"Money got deducted from my account — ₹6,804 via Wallet — but merchant dashboard still shows unpaid. This is ridiculous, it's been 14 days.",Amount Debited but Merchant Not Credited
+CMP000021,ORD000021,"I was told refund of ₹19,532 is on the way via NetBanking — it's been 11 days. Where is my money?",Refund Pending
+CMP000022,ORD000022,"Paytm shows refund initiated for ₹4,285 but my passbook has no credit entry after 34 hours.",Refund Pending
+CMP000023,ORD000023,"Failed payment on ₹11,241 (Wallet) for ORD5616 but amount looks blocked in my UPI app. Will it come back?",Failed Payment
+CMP000024,ORD000024,"Status shows refund completed for ₹19,636 yet my UPI balance is unchanged. What reference number should I give my bank?",Refund Completed
+CMP000025,ORD000025,"Txn successful for ₹23,049, merchant credited, settlement settled on their end. Customer just checking status is normal.",Normal Success
+CMP000026,ORD000026,"I was charged twice for the same order ORD9398 — two debits of ₹11,994 on Card within 48 minutes!",Duplicate Debit
+CMP000027,ORD000027,"You claim ₹6,517 refund is done via Wallet but I swear nothing hit my account in 14 days. Prove it landed.",Refund Completed
+CMP000028,ORD000028,"I paid ₹13,291 through Wallet for order ORD6140 but the seller says payment never reached them. My bank already debited it 17 hours ago!",Amount Debited but Merchant Not Credited
+CMP000029,ORD000029,"Our daily reconciliation has a ₹14,071 variance on ORD9147 date. Ledger says success but settlement file missing that txn.",Reconciliation Mismatch
+CMP000030,ORD000030,"Please help! ₹10,349 left my NetBanking account for ORD7608 and the merchant insists they haven't received anything since 23 hours.",Amount Debited but Merchant Not Credited
+CMP000031,ORD000031,"My bank raised a dispute on ₹10,126 Wallet charge for order ORD1396 — merchant says they'll fight the chargeback.",Chargeback / Dispute
+CMP000032,ORD000032,"UPI txn for ₹21,282 is still pending in my bank app since yesterday. Merchant hasn't confirmed order ORD3749 either.",UPI Pending
+CMP000033,ORD000033,"Please help! ₹16,796 left my Card account for ORD0162 and the merchant insists they haven't received anything since 47 hours.",Amount Debited but Merchant Not Credited
+CMP000034,ORD000034,"I filed a chargeback with my card issuer for ₹18,385 because goods never arrived. Paytm merchant is contesting it.",Chargeback / Dispute
+CMP000035,ORD000035,"Paytm shows refund initiated for ₹4,896 but my passbook has no credit entry after 5 hours.",Refund Pending
+CMP000036,ORD000036,"I was told refund of ₹12,269 is on the way via Card — it's been 10 days. Where is my money?",Refund Pending
+CMP000037,ORD000037,"Still waiting on ₹14,623 refund from ORD8044. App says initiated, bank says no incoming credit on NetBanking.",Refund Pending
+CMP000038,ORD000038,"I paid ₹3,020 through NetBanking for order ORD0555 but the seller says payment never reached them. My bank already debited it 33 hours ago!",Amount Debited but Merchant Not Credited
+CMP000039,ORD000039,"Status shows refund completed for ₹19,624 yet my Card balance is unchanged. What reference number should I give my bank?",Refund Completed
+CMP000040,ORD000040,"I'm a merchant — successful UPI payments of ₹11,082 from 2 days ago still show settlement pending in my dashboard.",Settlement Delay
+CMP000041,ORD000041,"Refund status says initiated for order ORD5316 (₹23,140) but nothing has come back to my Card yet. Getting impatient.",Refund Pending
+CMP000042,ORD000042,"UPI txn for ₹21,443 is still pending in my bank app since yesterday. Merchant hasn't confirmed order ORD8787 either.",UPI Pending
+CMP000043,ORD000043,Our daily reconciliation has a ₹191 variance on ORD1772 date. Ledger says success but settlement file missing that txn.,Reconciliation Mismatch
+CMP000044,ORD000044,"Merchant settlement failed for ₹18,605 — your portal shows FAILED on the batch linked to order ORD8176.",Settlement Failure
+CMP000045,ORD000045,"Txn shows success on my side for ₹12,070 (NetBanking) yet the shop didn't get the credit. Customer care at the store is asking me to pay again.",Amount Debited but Merchant Not Credited
+CMP000046,ORD000046,"I paid ₹14,703 through UPI for order ORD5167 but the seller says payment never reached them. My bank already debited it 14 hours ago!",Amount Debited but Merchant Not Credited
+CMP000047,ORD000047,"Merchant recon report shows ₹5,015 mismatch for 6-day file — your txn count doesn't match NPCI settlement for Card.",Reconciliation Mismatch
+CMP000048,ORD000048,"Our daily reconciliation has a ₹22,974 variance on ORD5363 date. Ledger says success but settlement file missing that txn.",Reconciliation Mismatch
+CMP000049,ORD000049,"I was told refund of ₹24,453 is on the way via Card — it's been 13 days. Where is my money?",Refund Pending
+CMP000050,ORD000050,"Money got deducted from my account — ₹10,792 via Wallet — but merchant dashboard still shows unpaid. This is ridiculous, it's been 13 days.",Amount Debited but Merchant Not Credited
+CMP000051,ORD000051,"Please help! ₹4,277 left my Card account for ORD7894 and the merchant insists they haven't received anything since 58 hours.",Amount Debited but Merchant Not Credited
+CMP000052,ORD000052,"My bank raised a dispute on ₹7,077 NetBanking charge for order ORD9506 — merchant says they'll fight the chargeback.",Chargeback / Dispute
+CMP000053,ORD000053,"Txn shows success on my side for ₹5,177 (Card) yet the shop didn't get the credit. Customer care at the store is asking me to pay again.",Amount Debited but Merchant Not Credited
+CMP000054,ORD000054,"Merchant recon report shows ₹13,065 mismatch for 14-day file — your txn count doesn't match NPCI settlement for Card.",Reconciliation Mismatch
+CMP000055,ORD000055,"Merchant settlement failed for ₹14,093 — your portal shows FAILED on the batch linked to order ORD5026.",Settlement Failure
+CMP000056,ORD000056,"UPI txn for ₹8,945 is still pending in my bank app since yesterday. Merchant hasn't confirmed order ORD1563 either.",UPI Pending
+CMP000057,ORD000057,"Settlement file total is ₹3,951 short vs internal ledger for Card batch. Which TXN_IDs are out of sync?",Reconciliation Mismatch
+CMP000058,ORD000058,"You claim ₹12,356 refund is done via UPI but I swear nothing hit my account in 9 days. Prove it landed.",Refund Completed
+CMP000059,ORD000059,"Txn successful for ₹15,097, merchant credited, settlement settled on their end. Customer just checking status is normal.",Normal Success
+CMP000060,ORD000060,"Refund marked completed for order ORD1850 (₹5,735) — I need the RRN because my bank can't find it.",Refund Completed
+CMP000061,ORD000061,"I was told refund of ₹18,705 is on the way via UPI — it's been 3 days. Where is my money?",Refund Pending
+CMP000062,ORD000062,"Txn shows success on my side for ₹23,132 (Card) yet the shop didn't get the credit. Customer care at the store is asking me to pay again.",Amount Debited but Merchant Not Credited
+CMP000063,ORD000063,"I paid ₹16,441 through UPI for order ORD4637 but the seller says payment never reached them. My bank already debited it 47 hours ago!",Amount Debited but Merchant Not Credited
+CMP000064,ORD000064,"My shop MID isn't getting T+1 settlement. ₹22,238 batch from ORD8590 era is still pending after 8 business days.",Settlement Delay
+CMP000065,ORD000065,"I have the debit SMS for ₹10,725 on Card but order ORD7420 is stuck because seller says amount not credited to them.",Amount Debited but Merchant Not Credited
+CMP000066,ORD000066,"I paid ₹17,360 through Wallet for order ORD9546 but the seller says payment never reached them. My bank already debited it 18 hours ago!",Amount Debited but Merchant Not Credited
+CMP000067,ORD000067,"Still waiting on ₹8,731 refund from ORD1021. App says initiated, bank says no incoming credit on NetBanking.",Refund Pending
+CMP000068,ORD000068,"My settlement of ₹17,924 via NetBanking route failed with a bank reject. Customers were charged but I got nothing.",Settlement Failure
+CMP000069,ORD000069,"I'm a seller: ₹2,551 settlement failed and support asked for cancelled cheque. This is urgent, sales from 10 days ago.",Settlement Failure
+CMP000070,ORD000070,"Merchant settlement failed for ₹24,814 — your portal shows FAILED on the batch linked to order ORD8630.",Settlement Failure
+CMP000071,ORD000071,"Completed refund for ₹6,056 on paper but customer care at my bank says no matching credit in last 8 days.",Refund Completed
+CMP000072,ORD000072,"Why is my ₹12,972 UPI payment still pending after 3 hours? I'm scared I'll get charged twice if I retry.",UPI Pending
+CMP000073,ORD000073,"Settlement for last week's UPI sales (about ₹12,059) hasn't hit my nodal account. Dashboard says pending since 4 hours.",Settlement Delay
+CMP000074,ORD000074,Your app says refund completed for ₹407 on Card but my bank statement still doesn't show any credit after 1 days.,Refund Completed
+CMP000075,ORD000075,"Completed refund for ₹6,833 on paper but customer care at my bank says no matching credit in last 7 days.",Refund Completed
+CMP000076,ORD000076,"I paid ₹22,795 through Wallet for order ORD0484 but the seller says payment never reached them. My bank already debited it 28 hours ago!",Amount Debited but Merchant Not Credited
+CMP000077,ORD000077,"My bank raised a dispute on ₹17,404 Wallet charge for order ORD6902 — merchant says they'll fight the chargeback.",Chargeback / Dispute
+CMP000078,ORD000078,"Order unpaid because txn failed, yet I see ₹17,954 deducted on UPI. Fix this — I didn't get the product.",Failed Payment
+CMP000079,ORD000079,"Received chargeback notice on ₹1,761 txn from 2 days ago (Wallet). Need to submit representment docs ASAP.",Chargeback / Dispute
+CMP000080,ORD000080,"I paid ₹10,556 through Wallet for order ORD0537 but the seller says payment never reached them. My bank already debited it 25 hours ago!",Amount Debited but Merchant Not Credited
+CMP000081,ORD000081,"Customer disputed ₹19,135 via bank — reason merchandise not received. I have delivery proof for ORD0331 though.",Chargeback / Dispute
+CMP000082,ORD000082,"Why is my ₹20,538 UPI payment still pending after 26 hours? I'm scared I'll get charged twice if I retry.",UPI Pending
+CMP000083,ORD000083,"Txn shows success on my side for ₹18,997 (UPI) yet the shop didn't get the credit. Customer care at the store is asking me to pay again.",Amount Debited but Merchant Not Credited
+CMP000084,ORD000084,"Failed payment on ₹12,746 (NetBanking) for ORD7954 but amount looks blocked in my UPI app. Will it come back?",Failed Payment
+CMP000085,ORD000085,"I paid ₹15,316 through Wallet for order ORD3414 but the seller says payment never reached them. My bank already debited it 72 hours ago!",Amount Debited but Merchant Not Credited
+CMP000086,ORD000086,"Merchant recon report shows ₹23,669 mismatch for 3-day file — your txn count doesn't match NPCI settlement for UPI.",Reconciliation Mismatch
+CMP000087,ORD000087,"I'm a merchant — successful NetBanking payments of ₹7,221 from 9 days ago still show settlement pending in my dashboard.",Settlement Delay
+CMP000088,ORD000088,"Please help! ₹20,582 left my Card account for ORD3325 and the merchant insists they haven't received anything since 9 hours.",Amount Debited but Merchant Not Credited
+CMP000089,ORD000089,"Please reverse the extra ₹4,687 charge — I accidentally paid twice when the first UPI attempt hung for 56 hours.",Duplicate Debit
+CMP000090,ORD000090,"Paid ₹24,461 via UPI and it's been pending for almost 13 days — no debit, no success, nothing final!",UPI Pending
+CMP000091,ORD000091,"I have the debit SMS for ₹19,541 on UPI but order ORD1674 is stuck because seller says amount not credited to them.",Amount Debited but Merchant Not Credited
+CMP000092,ORD000092,"Txn shows success on my side for ₹24,895 (UPI) yet the shop didn't get the credit. Customer care at the store is asking me to pay again.",Amount Debited but Merchant Not Credited
+CMP000093,ORD000093,"You guys initiated a refund for ₹13,336 on Card 14 days ago but I still don't see it in my bank account.",Refund Pending
+CMP000094,ORD000094,Status shows refund completed for ₹917 yet my UPI balance is unchanged. What reference number should I give my bank?,Refund Completed
+CMP000095,ORD000095,"Payment failed for ₹8,488 on UPI but I got a debit SMS anyway for order ORD1241. Please check.",Failed Payment
+CMP000096,ORD000096,"Payment failed for ₹12,585 on UPI but I got a debit SMS anyway for order ORD9834. Please check.",Failed Payment
+CMP000097,ORD000097,"Duplicate payment! Same ₹4,537 taken two times via Card for one purchase. I only ordered once.",Duplicate Debit
+CMP000098,ORD000098,Completed refund for ₹100 on paper but customer care at my bank says no matching credit in last 4 days.,Refund Completed
+CMP000099,ORD000099,"Received chargeback notice on ₹8,836 txn from 11 days ago (Wallet). Need to submit representment docs ASAP.",Chargeback / Dispute
+CMP000100,ORD000100,"Status shows refund completed for ₹2,378 yet my Card balance is unchanged. What reference number should I give my bank?",Refund Completed
