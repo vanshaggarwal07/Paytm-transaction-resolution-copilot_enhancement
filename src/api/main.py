@@ -13,6 +13,7 @@ from src.core.escalation_rules import determine_escalation
 from src.core.issue_rules import identify_issue
 from src.core.llm_generator import generate_response, is_llm_configured, is_llm_ready
 from src.core.rag_retriever import retrieve_sop
+from src.core.signal_reconciliation import reconcile_signals
 from src.core.sop_metadata import load_sop_metadata
 from src.core.sop_response_builder import build_sop_fallback_response
 from src.core.transaction_lookup import lookup_transaction
@@ -40,6 +41,9 @@ class ResolveResponse(BaseModel):
     """Structured resolution payload returned to the agent UI."""
 
     issue: str
+    primary_issue: str
+    secondary_issue: Optional[str] = None
+    agreement: bool
     sop_source: str
     escalation_required: Optional[bool] = None
     escalation_note: Optional[str] = None
@@ -93,12 +97,14 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
         )
 
     issue = identify_issue(transaction)
+    signals = reconcile_signals(issue, request.complaint)
     logger.info(
-        "identified issue: %s for mid=%s order_id=%s cust_id=%s",
+        "identified issue: %s for mid=%s order_id=%s cust_id=%s (agreement=%s)",
         issue,
         request.mid,
         request.order_id,
         request.cust_id,
+        signals["agreement"],
     )
 
     # Use the rule-engine issue name for retrieval: SOP headings match taxonomy
@@ -138,7 +144,10 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
         )
 
     return ResolveResponse(
-        issue=issue,
+        issue=signals["primary_issue"],
+        primary_issue=signals["primary_issue"],
+        secondary_issue=signals["secondary_issue"],
+        agreement=signals["agreement"],
         sop_source=sop_source,
         escalation_required=escalation["escalation_required"],
         escalation_note=escalation_note,
