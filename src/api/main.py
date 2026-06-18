@@ -11,8 +11,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from src.core.issue_rules import identify_issue
-from src.core.llm_generator import generate_response, is_llm_configured
+from src.core.llm_generator import generate_response, is_llm_configured, is_llm_ready
 from src.core.rag_retriever import retrieve_sop
+from src.core.sop_response_builder import build_sop_fallback_response
 from src.core.transaction_lookup import lookup_transaction
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,11 @@ def _parse_escalation(response_text: str) -> tuple[Optional[bool], Optional[str]
 @app.get("/health")
 def health() -> Dict[str, Any]:
     """Return a simple health check payload."""
-    return {"status": "ok", "llm_configured": is_llm_configured()}
+    return {
+        "status": "ok",
+        "llm_configured": is_llm_configured(),
+        "llm_ready": is_llm_ready(),
+    }
 
 
 @app.post("/resolve", response_model=ResolveResponse)
@@ -128,15 +133,26 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
     sop = sop_results[0]
     sop_source = Path(sop["file_path"]).name
 
-    response_mode = "gemini" if is_llm_configured() else "sop_fallback"
-    response_text = generate_response(
-        transaction=transaction,
-        issue=issue,
-        sop=sop,
-        complaint=request.complaint,
-    )
+    try:
+        response_text, response_mode = generate_response(
+            transaction=transaction,
+            issue=issue,
+            sop=sop,
+            complaint=request.complaint,
+        )
+    except Exception as exc:
+        logger.exception("Resolution pipeline failed for ORDER_ID=%s: %s", request.order_id, exc)
+        response_text = build_sop_fallback_response(
+            transaction, issue, sop, request.complaint
+        )
+        response_mode = "sop_fallback"
 
     escalation_required, escalation_note = _parse_escalation(response_text)
+    if response_mode == "sop_fallback" and not is_llm_configured():
+        escalation_note = escalation_note or (
+            "Using SOP-based guidance. Add a valid GEMINI_API_KEY from "
+            "https://aistudio.google.com/apikey for Gemini responses."
+        )
 
     return ResolveResponse(
         issue=issue,

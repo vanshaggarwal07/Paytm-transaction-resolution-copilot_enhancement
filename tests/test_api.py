@@ -17,6 +17,7 @@ def test_health_returns_200() -> None:
     payload = response.json()
     assert payload["status"] == "ok"
     assert "llm_configured" in payload
+    assert "llm_ready" in payload
 
 
 def test_resolve_valid_transaction_returns_200_with_keys() -> None:

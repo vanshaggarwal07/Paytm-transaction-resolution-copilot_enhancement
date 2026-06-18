@@ -29,15 +29,17 @@ def test_generate_response_with_real_pipeline() -> None:
         sop=sop_results[0],
         complaint=complaint,
     )
+    response_text, response_mode = result
 
     print("\n--- generate_response output ---")
     print(f"Issue: {issue}")
+    print(f"Mode: {response_mode}")
     print(f"SOP: {sop_results[0]['file_path']}")
-    print(result)
+    print(response_text)
     print("--- end output ---\n")
 
-    assert isinstance(result, str)
-    assert "Explanation:" in result
-    assert "Next Action:" in result
-    assert "Escalation:" in result
-    assert "Source:" in result
+    assert isinstance(response_text, str)
+    assert "Explanation:" in response_text
+    assert "Next Action:" in response_text
+    assert "Escalation:" in response_text
+    assert "Source:" in response_text

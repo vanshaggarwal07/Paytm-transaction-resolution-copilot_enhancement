@@ -55,7 +55,10 @@ def _call_resolve_api(
 
     if response.status_code != 200:
         logger.error("API returned status %s: %s", response.status_code, response.text)
-        detail = response.json().get("detail") if response.headers.get("content-type", "").startswith("application/json") else None
+        try:
+            detail = response.json().get("detail")
+        except ValueError:
+            detail = response.text
         return None, detail or "The resolution API returned an unexpected error."
 
     try:
@@ -96,11 +99,17 @@ def main() -> None:
     st.caption("Look up a transaction and get grounded agent guidance.")
 
     try:
-        health = requests.get(API_HEALTH_URL, timeout=5).json()
+        health = requests.get(API_HEALTH_URL, timeout=30).json()
         if not health.get("llm_configured"):
-            st.info(
-                "Gemini API key not configured — showing **SOP-based guidance** from "
-                "transaction facts. Add `GEMINI_API_KEY` to `.env` for AI-generated responses."
+            st.warning(
+                "No Gemini API key found in `.env`. Add `GEMINI_API_KEY=` (no quotes) from "
+                "[Google AI Studio](https://aistudio.google.com/apikey), then restart the servers."
+            )
+        elif not health.get("llm_ready"):
+            st.warning(
+                "Gemini API key is present but rejected (expired or invalid). "
+                "Create a **new** key at [Google AI Studio](https://aistudio.google.com/apikey), "
+                "update `.env` as `GEMINI_API_KEY=your_key` with no quotes, and restart `./run_demo.sh`."
             )
     except requests.RequestException:
         st.warning("API health check failed — start FastAPI on port 8000 before resolving.")
@@ -134,7 +143,10 @@ def main() -> None:
     st.header(result["issue"])
     _render_escalation_badge(result.get("escalation_required"), result.get("escalation_note"))
     if result.get("response_mode") == "sop_fallback":
-        st.caption("Response mode: SOP-based (add GEMINI_API_KEY to .env for Gemini)")
+        st.info(
+            "Showing SOP-based guidance (Gemini unavailable). Resolution still works — "
+            "refresh your API key in `.env` and restart the servers for AI explanations."
+        )
     st.markdown(result["response"])
     st.caption(f"SOP source: {result.get('sop_source', 'unknown')}")
 

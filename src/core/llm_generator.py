@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Tuple
 
 from dotenv import load_dotenv
 from google import genai
@@ -18,54 +18,100 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _ENV_PATH = _PROJECT_ROOT / ".env"
 
-if not _ENV_PATH.exists():
-    _ENV_PATH.write_text("GEMINI_API_KEY=your_key_here\n", encoding="utf-8")
-    logger.warning(
-        "Created %s with placeholder GEMINI_API_KEY. Replace your_key_here with "
-        "your real key from Google AI Studio: https://aistudio.google.com",
-        _ENV_PATH,
-    )
-
-load_dotenv(_ENV_PATH)
+load_dotenv(_ENV_PATH, override=True)
 
 DEFAULT_MODEL = "gemini-2.0-flash"
 FALLBACK_MODEL_CANDIDATES: tuple[str, ...] = (
     "gemini-2.0-flash",
+    "gemini-2.5-flash",
     "gemini-2.5-flash-preview-05-20",
     "gemini-1.5-flash",
     "gemini-3.5-flash",
 )
-FALLBACK_RESPONSE = (
-    "Unable to generate a response right now — please retry or escalate manually"
-)
 
-def _is_api_key_configured() -> bool:
-    """Return True when a non-placeholder Gemini API key is available."""
-    key = os.getenv("GEMINI_API_KEY", "")
-    return bool(key) and key != "your_key_here"
+_ACTIVE_MODEL: Optional[str] = None
+_client: Optional[genai.Client] = None
+_client_key: Optional[str] = None
+_llm_ready: Optional[bool] = None
 
 
-client: genai.Client | None = None
-if _is_api_key_configured():
-    try:
-        client = genai.Client()
-    except ValueError as exc:
-        client = None
-        logger.warning("genai.Client() could not initialize: %s", exc)
-else:
-    logger.warning(
-        "GEMINI_API_KEY is not configured in %s. "
-        "SOP-based fallback responses will be used until a real key is added.",
-        _ENV_PATH,
-    )
+def _get_api_key() -> str:
+    """Reload and return a normalized Gemini API key from the environment."""
+    load_dotenv(_ENV_PATH, override=True)
+    raw_key = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
+    return raw_key.strip().strip('"').strip("'")
+
+
+def _get_client() -> Optional[genai.Client]:
+    """Return a Gemini client, creating one when a key is available."""
+    global _client, _client_key, _llm_ready, _ACTIVE_MODEL
+
+    api_key = _get_api_key()
+    if not api_key or api_key == "your_key_here":
+        _client = None
+        _client_key = None
+        _llm_ready = None
+        _ACTIVE_MODEL = None
+        return None
+
+    os.environ["GEMINI_API_KEY"] = api_key
+
+    if _client is None or _client_key != api_key:
+        _llm_ready = None
+        _ACTIVE_MODEL = None
+        try:
+            _client = genai.Client(api_key=api_key)
+            _client_key = api_key
+        except ValueError as exc:
+            logger.warning("genai.Client() could not initialize: %s", exc)
+            _client = None
+            _client_key = None
+
+    return _client
 
 
 def is_llm_configured() -> bool:
-    """Return True when the Gemini client is ready to make API calls."""
-    return client is not None and _is_api_key_configured()
+    """Return True when a Gemini API key is present and the client can start."""
+    api_key = _get_api_key()
+    return bool(api_key) and api_key != "your_key_here" and _get_client() is not None
 
-# Resolved once on first successful call, or after flash-tier fallback discovery.
-_ACTIVE_MODEL: str | None = None
+
+def _is_auth_error(exc: Exception) -> bool:
+    """Return True when Gemini rejected the API key."""
+    message = str(exc).lower()
+    return "401" in message or "unauthenticated" in message or "invalid authentication" in message
+
+
+def is_llm_ready() -> bool:
+    """Return True when Gemini accepts the configured API key."""
+    global _llm_ready, _ACTIVE_MODEL
+
+    if not is_llm_configured():
+        _llm_ready = False
+        return False
+
+    if _llm_ready is not None:
+        return _llm_ready
+
+    client = _get_client()
+    assert client is not None
+
+    for candidate in FALLBACK_MODEL_CANDIDATES:
+        try:
+            client.models.generate_content(model=candidate, contents="Reply with OK.")
+            _ACTIVE_MODEL = candidate
+            _llm_ready = True
+            return True
+        except Exception as exc:
+            if _is_auth_error(exc):
+                logger.error("Gemini rejected the API key: %s", exc)
+                _llm_ready = False
+                return False
+            logger.warning("Gemini model %s unavailable during readiness check: %s", candidate, exc)
+
+    _llm_ready = False
+    return False
+
 
 RESPONSE_PROMPT_TEMPLATE = """You are a Paytm payment support copilot helping a human agent.
 Your job is to EXPLAIN facts already determined by the rule engine — never to decide
@@ -131,34 +177,46 @@ def _build_prompt(
     )
 
 
-def _find_flash_model() -> str | None:
-    """Return the first available flash-tier model name from the API."""
-    if client is None:
-        return None
+def _extract_response_text(response: Any) -> str:
+    """Safely extract text from a Gemini response object."""
+    text = getattr(response, "text", None)
+    if text and str(text).strip():
+        return str(text).strip()
 
+    candidates = getattr(response, "candidates", None) or []
+    parts: list[str] = []
+    for candidate in candidates:
+        content = getattr(candidate, "content", None)
+        if not content:
+            continue
+        for part in getattr(content, "parts", None) or []:
+            part_text = getattr(part, "text", None)
+            if part_text:
+                parts.append(str(part_text))
+    return "\n".join(parts).strip()
+
+
+def _find_flash_model(client: genai.Client) -> Optional[str]:
+    """Return the first available flash-tier model name from the API."""
     try:
         for model in client.models.list():
             model_name = getattr(model, "name", "") or ""
             short_name = model_name.split("/")[-1]
             if "flash" in short_name.lower():
-                logger.info("Falling back to available flash model: %s", short_name)
+                logger.info("Discovered flash model: %s", short_name)
                 return short_name
     except Exception as exc:
         logger.error("Failed to list Gemini models: %s", exc)
     return None
 
 
-def _resolve_model_name() -> str:
+def _resolve_model_name(client: genai.Client) -> Optional[str]:
     """Resolve the Gemini model name, falling back if the default is unavailable."""
     global _ACTIVE_MODEL
 
     if _ACTIVE_MODEL is not None:
         return _ACTIVE_MODEL
 
-    if client is None:
-        raise RuntimeError("Gemini client is not configured — GEMINI_API_KEY is missing")
-
-    errors: list[str] = []
     for candidate in FALLBACK_MODEL_CANDIDATES:
         try:
             client.models.generate_content(model=candidate, contents="Reply with OK.")
@@ -167,15 +225,13 @@ def _resolve_model_name() -> str:
                 logger.warning("Using Gemini model %s (default %s unavailable)", candidate, DEFAULT_MODEL)
             return candidate
         except Exception as exc:
-            errors.append(f"{candidate}: {exc}")
+            if _is_auth_error(exc):
+                logger.error("Gemini rejected the API key while resolving model: %s", exc)
+                return None
+            logger.warning("Gemini model %s unavailable: %s", candidate, exc)
 
-    fallback = _find_flash_model()
-    if fallback is not None:
-        _ACTIVE_MODEL = fallback
-        logger.warning("Switched LLM model to discovered flash model: %s", fallback)
-        return fallback
-
-    raise RuntimeError(f"No Gemini flash model available. Attempts: {'; '.join(errors)}")
+    _ACTIVE_MODEL = _find_flash_model(client)
+    return _ACTIVE_MODEL
 
 
 def generate_response(
@@ -183,23 +239,27 @@ def generate_response(
     issue: str,
     sop: dict[str, Any],
     complaint: str = "",
-) -> str:
-    """Generate a grounded agent response using Gemini and the retrieved SOP."""
-    if not is_llm_configured():
-        logger.info("Using SOP-based fallback response for issue %r", issue)
-        return build_sop_fallback_response(transaction, issue, sop, complaint)
+) -> Tuple[str, str]:
+    """Generate agent guidance; returns (response_text, response_mode)."""
+    client = _get_client()
+    if client is None:
+        logger.info("Using SOP-based fallback response for issue %r (no API key)", issue)
+        return build_sop_fallback_response(transaction, issue, sop, complaint), "sop_fallback"
 
     prompt = _build_prompt(transaction, issue, sop, complaint)
 
     try:
-        model_name = _resolve_model_name()
+        model_name = _resolve_model_name(client)
+        if model_name is None:
+            raise RuntimeError("No Gemini model could be resolved")
+
         response = client.models.generate_content(model=model_name, contents=prompt)
-        text = getattr(response, "text", None)
-        if text and text.strip():
-            return text.strip()
+        text = _extract_response_text(response)
+        if text:
+            return text, "gemini"
         logger.error("Gemini returned an empty response for issue %r", issue)
     except Exception as exc:
         logger.exception("Gemini generation failed: %s", exc)
 
     logger.info("Falling back to SOP-based response after Gemini failure for issue %r", issue)
-    return build_sop_fallback_response(transaction, issue, sop, complaint)
+    return build_sop_fallback_response(transaction, issue, sop, complaint), "sop_fallback"
