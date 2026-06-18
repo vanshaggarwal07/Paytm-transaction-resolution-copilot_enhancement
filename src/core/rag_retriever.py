@@ -10,6 +10,8 @@ import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
+from src.core.sop_metadata import parse_issue_name, split_sop_markdown
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_SOPS_DIR = Path("data/sops")
@@ -19,15 +21,6 @@ EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 _SOP_DOCUMENTS: list[dict[str, str]] = []
 _EMBEDDING_MODEL: SentenceTransformer | None = None
 _EMBEDDING_INDEX: faiss.IndexFlatIP | None = None
-
-
-def _parse_issue_name(markdown_text: str, file_path: Path) -> str:
-    """Extract the issue title from the first markdown heading."""
-    for line in markdown_text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("# "):
-            return stripped[2:].strip()
-    raise ValueError(f"No issue heading found in SOP file: {file_path}")
 
 
 def _load_sop_documents(sops_dir: Path = DEFAULT_SOPS_DIR) -> list[dict[str, str]]:
@@ -42,13 +35,15 @@ def _load_sop_documents(sops_dir: Path = DEFAULT_SOPS_DIR) -> list[dict[str, str
     documents: list[dict[str, str]] = []
     for path in sop_paths:
         try:
-            content = path.read_text(encoding="utf-8")
-            issue_name = _parse_issue_name(content, path)
+            raw_content = path.read_text(encoding="utf-8")
+            _, body = split_sop_markdown(raw_content)
+            issue_name = parse_issue_name(raw_content, path)
             documents.append(
                 {
                     "issue_name": issue_name,
                     "file_path": str(path),
-                    "content": content,
+                    "content": body,
+                    "embedding_text": body,
                 }
             )
         except OSError as exc:
@@ -65,7 +60,7 @@ def _build_embedding_index(
     """Embed SOP texts and build a normalized inner-product FAISS index."""
     try:
         model = SentenceTransformer(model_name)
-        texts = [document["content"] for document in documents]
+        texts = [document["embedding_text"] for document in documents]
         embeddings = model.encode(texts, normalize_embeddings=True)
         embedding_matrix = np.asarray(embeddings, dtype=np.float32)
 

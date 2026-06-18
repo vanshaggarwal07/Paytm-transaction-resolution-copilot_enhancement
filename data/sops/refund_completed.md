@@ -1,3 +1,10 @@
+---
+issue: "Refund Completed"
+escalation_required: true
+escalation_threshold_hours: 168
+escalation_team: "L2 Refunds Ops"
+expected_resolution_hours: 120
+---
 # Refund Completed
 
 ## Symptoms

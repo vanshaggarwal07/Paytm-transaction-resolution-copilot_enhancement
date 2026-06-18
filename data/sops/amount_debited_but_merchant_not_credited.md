@@ -1,3 +1,10 @@
+---
+issue: "Amount Debited but Merchant Not Credited"
+escalation_required: true
+escalation_threshold_hours: 24
+escalation_team: "L2 Acquiring Ops"
+expected_resolution_hours: 24
+---
 # Amount Debited but Merchant Not Credited
 
 ## Symptoms

@@ -1,3 +1,10 @@
+---
+issue: "Duplicate Debit"
+escalation_required: true
+escalation_threshold_hours: null
+escalation_team: "L2 Refunds Ops"
+expected_resolution_hours: 48
+---
 # Duplicate Debit
 
 ## Symptoms

@@ -1,3 +1,10 @@
+---
+issue: "Reconciliation Mismatch"
+escalation_required: true
+escalation_threshold_hours: null
+escalation_team: "L2 Reconciliation"
+expected_resolution_hours: 24
+---
 # Reconciliation Mismatch
 
 ## Symptoms

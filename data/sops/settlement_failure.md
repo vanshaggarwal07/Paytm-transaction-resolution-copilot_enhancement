@@ -1,3 +1,10 @@
+---
+issue: "Settlement Failure"
+escalation_required: true
+escalation_threshold_hours: null
+escalation_team: "L2 Settlement Ops"
+expected_resolution_hours: 48
+---
 # Settlement Failure
 
 ## Symptoms

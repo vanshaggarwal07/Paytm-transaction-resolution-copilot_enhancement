@@ -1,3 +1,10 @@
+---
+issue: "Chargeback / Dispute"
+escalation_required: true
+escalation_threshold_hours: null
+escalation_team: "Chargeback/Disputes team"
+expected_resolution_hours: 168
+---
 # Chargeback / Dispute
 
 ## Symptoms

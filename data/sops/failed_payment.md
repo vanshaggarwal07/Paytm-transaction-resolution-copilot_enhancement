@@ -1,3 +1,10 @@
+---
+issue: "Failed Payment"
+escalation_required: true
+escalation_threshold_hours: 48
+escalation_team: "L2 Acquiring Ops"
+expected_resolution_hours: 48
+---
 # Failed Payment
 
 ## Symptoms

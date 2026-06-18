@@ -44,3 +44,11 @@ src/api/main.py, src/ui/app.py, tests/
   changed and why. Never commit anything without me reviewing it first.
 - After writing or editing code, run it (or the relevant test) and show me
   the real output before saying a step is done.
+- Escalation decisions (yes/no, and which team) are computed exclusively by
+  deterministic code reading structured SOP metadata. The LLM never
+  determines escalation — it only narrates a decision that has already been
+  computed and passed to it as a fact.
+- Each SOP file has two parts: YAML frontmatter for structured,
+  machine-readable fields, and a Markdown body for prose used in RAG/LLM
+  grounding. Code that needs a fact (threshold, team name) reads frontmatter;
+  code that needs language to ground a response reads the body only.

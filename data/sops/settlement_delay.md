@@ -1,3 +1,10 @@
+---
+issue: "Settlement Delay"
+escalation_required: true
+escalation_threshold_hours: 48
+escalation_team: "L2 Settlement Ops"
+expected_resolution_hours: 24
+---
 # Settlement Delay
 
 ## Symptoms
