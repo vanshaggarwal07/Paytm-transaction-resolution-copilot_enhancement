@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import logging
-import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from src.core.escalation_rules import determine_escalation
 from src.core.issue_rules import identify_issue
 from src.core.llm_generator import generate_response, is_llm_configured, is_llm_ready
 from src.core.rag_retriever import retrieve_sop
+from src.core.sop_metadata import load_sop_metadata
 from src.core.sop_response_builder import build_sop_fallback_response
 from src.core.transaction_lookup import lookup_transaction
 
@@ -44,27 +45,6 @@ class ResolveResponse(BaseModel):
     escalation_note: Optional[str] = None
     response: str
     response_mode: str
-
-
-def _parse_escalation(response_text: str) -> tuple[Optional[bool], Optional[str]]:
-    """Extract Yes/No escalation from the labeled Escalation section if present."""
-    match = re.search(
-        r"Escalation:\s*(.+?)(?:\n\s*\n|\nSource:|\Z)",
-        response_text,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-    if not match:
-        return None, "Could not locate an Escalation section in the model response."
-
-    escalation_text = match.group(1).strip()
-    first_line = escalation_text.splitlines()[0].strip().lower()
-
-    if first_line.startswith("yes"):
-        return True, None
-    if first_line.startswith("no"):
-        return False, None
-
-    return None, f"Could not parse escalation answer from: {escalation_text!r}"
 
 
 @app.get("/health")
@@ -132,32 +112,35 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
 
     sop = sop_results[0]
     sop_source = Path(sop["file_path"]).name
+    sop_metadata = load_sop_metadata(sop["file_path"])
+    escalation = determine_escalation(transaction, sop_metadata)
 
     try:
         response_text, response_mode = generate_response(
             transaction=transaction,
             issue=issue,
             sop=sop,
+            escalation=escalation,
             complaint=request.complaint,
         )
     except Exception as exc:
         logger.exception("Resolution pipeline failed for ORDER_ID=%s: %s", request.order_id, exc)
         response_text = build_sop_fallback_response(
-            transaction, issue, sop, request.complaint
+            transaction, issue, sop, escalation, request.complaint
         )
         response_mode = "sop_fallback"
 
-    escalation_required, escalation_note = _parse_escalation(response_text)
+    escalation_note = escalation["reason"]
     if response_mode == "sop_fallback" and not is_llm_configured():
-        escalation_note = escalation_note or (
-            "Using SOP-based guidance. Add a valid GEMINI_API_KEY from "
-            "https://aistudio.google.com/apikey for Gemini responses."
+        escalation_note = (
+            f"{escalation['reason']} "
+            "(Using SOP-based guidance — add GEMINI_API_KEY for Gemini responses.)"
         )
 
     return ResolveResponse(
         issue=issue,
         sop_source=sop_source,
-        escalation_required=escalation_required,
+        escalation_required=escalation["escalation_required"],
         escalation_note=escalation_note,
         response=response_text,
         response_mode=response_mode,

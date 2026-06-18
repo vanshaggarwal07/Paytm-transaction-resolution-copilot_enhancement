@@ -30,41 +30,19 @@ def _bullet_lines(section_text: str, limit: int = 3) -> list[str]:
     return lines
 
 
-def _first_escalation_team(escalation_text: str) -> str:
-    """Extract the first escalation team name from SOP escalation rules."""
-    match = re.search(r"\*\*([^*]+)\*\*", escalation_text)
-    if match:
-        return match.group(1).strip()
-    match = re.search(r"Escalate to\s+([^\n]+)", escalation_text, flags=re.IGNORECASE)
-    return match.group(1).strip() if match else "the appropriate support team"
-
-
-def _should_escalate(issue: str, transaction: dict[str, Any]) -> bool:
-    """Apply simple fact-based thresholds aligned with SOP escalation guidance."""
-    age_hours = int(transaction.get("AGE_HOURS", 0))
-
-    if issue == "Amount Debited but Merchant Not Credited":
-        return transaction.get("MERCHANT_CREDITED") == "NO" and age_hours >= 24
-
-    if issue == "Settlement Delay":
-        return transaction.get("SETTLEMENT_STATUS") == "PENDING" and age_hours >= 48
-
-    if issue == "Settlement Failure":
-        return transaction.get("SETTLEMENT_STATUS") == "FAILED"
-
-    if issue == "Refund Pending":
-        return transaction.get("REFUND_STATUS") == "INITIATED" and age_hours >= 168
-
-    if issue == "UPI Pending":
-        return transaction.get("TXN_STATUS") == "Pending" and age_hours >= 48
-
-    return False
+def _format_escalation_line(escalation: dict[str, Any]) -> str:
+    """Format the Escalation section from a pre-computed escalation decision."""
+    if escalation.get("escalation_required"):
+        team = escalation.get("escalation_team") or "the appropriate support team"
+        return f"Yes — {team} ({escalation.get('reason', '')})"
+    return f"No ({escalation.get('reason', '')})"
 
 
 def build_sop_fallback_response(
     transaction: dict[str, Any],
     issue: str,
     sop: dict[str, Any],
+    escalation: dict[str, Any],
     complaint: str = "",
 ) -> str:
     """Compose a four-section response using only transaction facts and SOP text."""
@@ -94,16 +72,11 @@ def build_sop_fallback_response(
         next_steps = ["Review the retrieved SOP and verify all transaction fields in CRM."]
     next_action = "\n".join(f"- {step}" for step in next_steps)
 
-    escalation_section = _parse_sop_section(content, "Escalation Rules")
-    team = _first_escalation_team(escalation_section)
-    if _should_escalate(issue, transaction):
-        escalation = f"Yes — {team}"
-    else:
-        escalation = "No"
+    escalation_line = _format_escalation_line(escalation)
 
     return (
         f"Explanation:\n{explanation}\n\n"
         f"Next Action:\n{next_action}\n\n"
-        f"Escalation:\n{escalation}\n\n"
+        f"Escalation:\n{escalation_line}\n\n"
         f"Source:\n{sop_filename}"
     )

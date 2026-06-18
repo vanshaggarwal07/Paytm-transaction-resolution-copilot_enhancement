@@ -115,14 +115,18 @@ def is_llm_ready() -> bool:
 
 RESPONSE_PROMPT_TEMPLATE = """You are a Paytm payment support copilot helping a human agent.
 Your job is to EXPLAIN facts already determined by the rule engine — never to decide
-transaction status, issue type, or escalation on your own.
+transaction status or issue identification on your own.
+
+You are NOT deciding whether to escalate — that decision has already been made by the
+business rules engine. Your only job is to phrase it clearly for the agent.
 
 STRICT RULES:
 - Use ONLY the facts provided below. Never invent or assume any transaction detail,
   timeline, amount, status, or policy that is not explicitly given.
 - Do not contradict the identified issue supplied to you.
-- For Escalation: answer Yes or No, and name the team only if Yes — based STRICTLY
-  on the SOP's Escalation Rules section, not your own judgement.
+- For the Escalation section: state Yes or No exactly matching ESCALATION_REQUIRED below.
+  If Yes, name ESCALATION_TEAM exactly as given. Include the escalation REASON as context.
+  Do not override or second-guess the pre-computed escalation decision.
 - Respond in exactly four clearly labeled sections with these headings:
 
 Explanation:
@@ -132,13 +136,18 @@ Next Action:
 (Concrete steps the agent should take now, grounded in the SOP resolution steps.)
 
 Escalation:
-(Yes or No — if Yes, name the specific team from the SOP escalation rules.)
+(Yes or No per ESCALATION_REQUIRED — if Yes, name ESCALATION_TEAM and briefly cite REASON.)
 
 Source:
 (The SOP file name you used.)
 
 IDENTIFIED ISSUE:
 {issue}
+
+ESCALATION DECISION (pre-computed — do not change):
+- ESCALATION_REQUIRED: {escalation_required}
+- ESCALATION_TEAM: {escalation_team}
+- REASON: {escalation_reason}
 
 TRANSACTION RECORD:
 {transaction_json}
@@ -165,11 +174,16 @@ def _build_prompt(
     transaction: dict[str, Any],
     issue: str,
     sop: dict[str, Any],
+    escalation: dict[str, Any],
     complaint: str,
 ) -> str:
     """Fill the response prompt template with grounded context."""
+    team = escalation.get("escalation_team")
     return RESPONSE_PROMPT_TEMPLATE.format(
         issue=issue,
+        escalation_required=escalation.get("escalation_required"),
+        escalation_team=team if team else "(none)",
+        escalation_reason=escalation.get("reason", ""),
         transaction_json=_format_transaction(transaction),
         sop_filename=_sop_filename(sop),
         sop_content=sop["content"],
@@ -238,15 +252,19 @@ def generate_response(
     transaction: dict[str, Any],
     issue: str,
     sop: dict[str, Any],
+    escalation: dict[str, Any],
     complaint: str = "",
 ) -> Tuple[str, str]:
     """Generate agent guidance; returns (response_text, response_mode)."""
     client = _get_client()
     if client is None:
         logger.info("Using SOP-based fallback response for issue %r (no API key)", issue)
-        return build_sop_fallback_response(transaction, issue, sop, complaint), "sop_fallback"
+        return (
+            build_sop_fallback_response(transaction, issue, sop, escalation, complaint),
+            "sop_fallback",
+        )
 
-    prompt = _build_prompt(transaction, issue, sop, complaint)
+    prompt = _build_prompt(transaction, issue, sop, escalation, complaint)
 
     try:
         model_name = _resolve_model_name(client)
@@ -262,4 +280,7 @@ def generate_response(
         logger.exception("Gemini generation failed: %s", exc)
 
     logger.info("Falling back to SOP-based response after Gemini failure for issue %r", issue)
-    return build_sop_fallback_response(transaction, issue, sop, complaint), "sop_fallback"
+    return (
+        build_sop_fallback_response(transaction, issue, sop, escalation, complaint),
+        "sop_fallback",
+    )
