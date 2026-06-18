@@ -11,7 +11,7 @@ from typing import Any, Optional, Tuple
 from dotenv import load_dotenv
 from google import genai
 
-from src.core.sop_response_builder import build_sop_fallback_response
+from src.core.sop_response_builder import build_case_note_fallback, build_sop_fallback_response
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +159,33 @@ CUSTOMER COMPLAINT (optional, may be empty):
 {complaint}
 """
 
+CASE_NOTE_PROMPT_TEMPLATE = """You are drafting an internal case note for a payment-support ticketing system.
+The audience is other agents and team leads — not the customer.
+
+STRICT RULES:
+- Write exactly 2-4 sentences in past tense and third person.
+- Use a formal, concise tone suitable for CRM/ticket history.
+- Do not address the customer directly (no "you", "your", or salutations).
+- Include the identified issue, payment amount, case age in hours, payment mode,
+  and the pre-computed escalation outcome exactly as provided.
+- Use ONLY the facts below. Do not invent transaction details or policy.
+- Output plain prose only — no headings, bullets, or markdown.
+
+IDENTIFIED ISSUE:
+{issue}
+
+ESCALATION DECISION (pre-computed — do not change):
+- ESCALATION_REQUIRED: {escalation_required}
+- ESCALATION_TEAM: {escalation_team}
+- REASON: {escalation_reason}
+
+TRANSACTION RECORD:
+{transaction_json}
+
+RESOLUTION SUMMARY (from agent guidance already generated):
+{resolution_summary}
+"""
+
 
 def _format_transaction(transaction: dict[str, Any]) -> str:
     """Serialize the transaction dictionary for inclusion in the prompt."""
@@ -168,6 +195,24 @@ def _format_transaction(transaction: dict[str, Any]) -> str:
 def _sop_filename(sop: dict[str, Any]) -> str:
     """Extract the SOP markdown filename from a retrieval result."""
     return Path(sop["file_path"]).name
+
+
+def _build_case_note_prompt(
+    transaction: dict[str, Any],
+    issue: str,
+    escalation: dict[str, Any],
+    resolution_summary: str,
+) -> str:
+    """Fill the case-note prompt template with grounded context."""
+    team = escalation.get("escalation_team")
+    return CASE_NOTE_PROMPT_TEMPLATE.format(
+        issue=issue,
+        escalation_required=escalation.get("escalation_required"),
+        escalation_team=team if team else "(none)",
+        escalation_reason=escalation.get("reason", ""),
+        transaction_json=_format_transaction(transaction),
+        resolution_summary=resolution_summary.strip() or "(none provided)",
+    )
 
 
 def _build_prompt(
@@ -284,3 +329,34 @@ def generate_response(
         build_sop_fallback_response(transaction, issue, sop, escalation, complaint),
         "sop_fallback",
     )
+
+
+def generate_case_note(
+    transaction: dict[str, Any],
+    issue: str,
+    escalation: dict[str, Any],
+    resolution_summary: str,
+) -> str:
+    """Generate a formal ticketing case note; falls back to a template if Gemini fails."""
+    client = _get_client()
+    if client is None:
+        logger.info("Using template case note for issue %r (no API key)", issue)
+        return build_case_note_fallback(transaction, issue, escalation, resolution_summary)
+
+    prompt = _build_case_note_prompt(transaction, issue, escalation, resolution_summary)
+
+    try:
+        model_name = _resolve_model_name(client)
+        if model_name is None:
+            raise RuntimeError("No Gemini model could be resolved")
+
+        response = client.models.generate_content(model=model_name, contents=prompt)
+        text = _extract_response_text(response)
+        if text:
+            return text
+        logger.error("Gemini returned an empty case note for issue %r", issue)
+    except Exception as exc:
+        logger.exception("Gemini case note generation failed: %s", exc)
+
+    logger.info("Falling back to template case note after Gemini failure for issue %r", issue)
+    return build_case_note_fallback(transaction, issue, escalation, resolution_summary)

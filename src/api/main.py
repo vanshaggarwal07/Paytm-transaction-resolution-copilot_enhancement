@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from src.core.escalation_rules import determine_escalation
 from src.core.issue_rules import identify_issue
-from src.core.llm_generator import generate_response, is_llm_configured, is_llm_ready
+from src.core.llm_generator import generate_case_note, generate_response, is_llm_configured, is_llm_ready
 from src.core.rag_retriever import retrieve_sop
 from src.core.signal_reconciliation import reconcile_signals
 from src.core.sop_metadata import load_sop_metadata
@@ -49,6 +49,7 @@ class ResolveResponse(BaseModel):
     escalation_note: Optional[str] = None
     response: str
     response_mode: str
+    case_note: str
 
 
 @app.get("/health")
@@ -136,6 +137,13 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
         )
         response_mode = "sop_fallback"
 
+    case_note = generate_case_note(
+        transaction=transaction,
+        issue=issue,
+        escalation=escalation,
+        resolution_summary=response_text,
+    )
+
     escalation_note = escalation["reason"]
     if response_mode == "sop_fallback" and not is_llm_configured():
         escalation_note = (
@@ -153,4 +161,5 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
         escalation_note=escalation_note,
         response=response_text,
         response_mode=response_mode,
+        case_note=case_note,
     )

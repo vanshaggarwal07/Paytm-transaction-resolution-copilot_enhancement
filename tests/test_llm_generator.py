@@ -4,7 +4,7 @@ import re
 
 from src.core.escalation_rules import determine_escalation
 from src.core.issue_rules import identify_issue
-from src.core.llm_generator import generate_response
+from src.core.llm_generator import generate_case_note, generate_response
 from src.core.rag_retriever import retrieve_sop
 from src.core.sop_metadata import load_sop_metadata
 from src.core.transaction_lookup import lookup_transaction
@@ -77,3 +77,41 @@ def test_generate_response_with_real_pipeline() -> None:
         assert first_line.startswith("no"), (
             f"Escalation section contradicts pre-computed decision: {escalation_text!r}"
         )
+
+
+def test_generate_case_note_with_real_pipeline() -> None:
+    """End-to-end smoke test: produce a ticketing case note from a resolved transaction."""
+    transaction = lookup_transaction("MID000002", "ORD000002", "CUST000002")
+    assert transaction is not None
+
+    issue = identify_issue(transaction)
+    sop = retrieve_sop(issue, top_k=1)[0]
+    sop_metadata = load_sop_metadata(sop["file_path"])
+    escalation = determine_escalation(transaction, sop_metadata)
+
+    complaint = "Settlement is still pending and merchant has not received funds yet."
+    response_text, _response_mode = generate_response(
+        transaction=transaction,
+        issue=issue,
+        sop=sop,
+        escalation=escalation,
+        complaint=complaint,
+    )
+
+    case_note = generate_case_note(
+        transaction=transaction,
+        issue=issue,
+        escalation=escalation,
+        resolution_summary=response_text,
+    )
+
+    print("\n--- generate_case_note output ---")
+    print(f"Issue: {issue}")
+    print(f"Escalation: {escalation}")
+    print(case_note)
+    print("--- end output ---\n")
+
+    assert isinstance(case_note, str)
+    assert len(case_note.strip()) > 0
+    assert "Settlement Delay" in case_note or "settlement delay" in case_note.lower()
+    assert str(transaction["TXN_AMOUNT"]) in case_note or "2677" in case_note

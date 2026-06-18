@@ -176,6 +176,13 @@ def main() -> None:
         )
     st.markdown(result["response"])
     st.caption(f"SOP source: {result.get('sop_source', 'unknown')}")
+    st.subheader("Copy case note")
+    st.text_area(
+        "Case note",
+        value=result.get("case_note", ""),
+        height=140,
+        label_visibility="collapsed",
+    )
 
 
 if __name__ == "__main__":

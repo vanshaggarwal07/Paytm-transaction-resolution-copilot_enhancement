@@ -43,9 +43,12 @@ def test_resolve_valid_transaction_returns_200_with_keys() -> None:
     assert "agreement" in payload
     assert "response" in payload
     assert "response_mode" in payload
+    assert "case_note" in payload
     assert payload["issue"] == expected_issue
     assert payload["primary_issue"] == expected_issue
     assert isinstance(payload["response"], str)
+    assert isinstance(payload["case_note"], str)
+    assert len(payload["case_note"].strip()) > 0
     assert "Explanation:" in payload["response"]
 
 

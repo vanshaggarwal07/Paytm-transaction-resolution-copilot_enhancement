@@ -80,3 +80,39 @@ def build_sop_fallback_response(
         f"Escalation:\n{escalation_line}\n\n"
         f"Source:\n{sop_filename}"
     )
+
+
+def build_case_note_fallback(
+    transaction: dict[str, Any],
+    issue: str,
+    escalation: dict[str, Any],
+    resolution_summary: str,
+) -> str:
+    """Compose a deterministic ticketing case note from transaction facts."""
+    txn_id = transaction.get("TXN_ID", "unknown")
+    order_id = transaction.get("ORDER_ID", "unknown")
+    amount = transaction.get("TXN_AMOUNT", "unknown")
+    payment_mode = transaction.get("PAYMENT_MODE", "unknown")
+    age_hours = transaction.get("AGE_HOURS", "unknown")
+
+    if escalation.get("escalation_required"):
+        team = escalation.get("escalation_team") or "the appropriate support team"
+        escalation_sentence = (
+            f"Escalation to {team} was required ({escalation.get('reason', '')})."
+        )
+    else:
+        escalation_sentence = (
+            f"No escalation was required ({escalation.get('reason', '')})."
+        )
+
+    summary_sentence = ""
+    if resolution_summary.strip():
+        first_line = resolution_summary.strip().splitlines()[0]
+        summary_sentence = f" Resolution guidance indicated: {first_line[:200]}."
+
+    return (
+        f"Transaction {txn_id} (order {order_id}) was reviewed and classified as "
+        f"\"{issue}\". The {payment_mode} payment of ₹{amount} had been open for "
+        f"{age_hours} hours at the time of review.{summary_sentence} "
+        f"{escalation_sentence}"
+    )
