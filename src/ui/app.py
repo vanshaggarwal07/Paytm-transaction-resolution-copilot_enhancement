@@ -68,6 +68,32 @@ def _call_resolve_api(
         return None, "Received an invalid response from the API."
 
 
+def _render_signal_agreement_badge(result: dict) -> None:
+    """Show whether rule-engine and complaint-derived signals agree."""
+    agreement = result.get("agreement", True)
+    primary_issue = result.get("primary_issue") or result.get("issue", "Unknown")
+    secondary_issue = result.get("secondary_issue")
+
+    if agreement:
+        st.markdown(
+            '<span style="background-color:#28a745;color:white;padding:4px 10px;'
+            'border-radius:6px;font-weight:600;">Signals aligned</span>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    st.markdown(
+        '<span style="background-color:#ffc107;color:#212529;padding:4px 10px;'
+        'border-radius:6px;font-weight:600;">Needs review</span>',
+        unsafe_allow_html=True,
+    )
+    if secondary_issue:
+        st.markdown(
+            f"Transaction data suggests **{primary_issue}**, but the complaint text "
+            f"more closely matches **{secondary_issue}**."
+        )
+
+
 def _render_escalation_badge(escalation_required: bool | None, note: str | None) -> None:
     """Show a colored escalation badge based on the parsed API response."""
     if escalation_required is True:
@@ -140,6 +166,7 @@ def main() -> None:
         return
 
     assert result is not None
+    _render_signal_agreement_badge(result)
     st.header(result["issue"])
     _render_escalation_badge(result.get("escalation_required"), result.get("escalation_note"))
     if result.get("response_mode") == "sop_fallback":
