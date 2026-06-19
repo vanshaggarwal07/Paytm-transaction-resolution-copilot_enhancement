@@ -1,5 +1,7 @@
 """Tests for the FastAPI resolution endpoints."""
 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from src.core.issue_rules import identify_issue
@@ -44,6 +46,8 @@ def test_resolve_valid_transaction_returns_200_with_keys() -> None:
     assert "response" in payload
     assert "response_mode" in payload
     assert "case_note" in payload
+    assert "groundedness_verified" in payload
+    assert "unsupported_claims" in payload
     assert payload["issue"] == expected_issue
     assert payload["primary_issue"] == expected_issue
     assert isinstance(payload["response"], str)
@@ -106,4 +110,32 @@ def test_resolve_divergent_complaint_returns_signal_disagreement() -> None:
     assert payload["issue"] == "Settlement Delay"
     assert payload["secondary_issue"] == "Chargeback / Dispute"
     assert payload["sop_source"] == "settlement_delay.md"
+
+
+def test_resolve_includes_flagged_groundedness_when_verifier_fails() -> None:
+    """Flagged groundedness is attached without blocking the resolution response."""
+    stubbed_result = {
+        "verified": False,
+        "unsupported_claims": ["Invented refund amount ₹99999.99"],
+        "raw_verifier_output": "- Invented refund amount ₹99999.99",
+    }
+
+    with patch("src.api.main.verify_groundedness", return_value=stubbed_result):
+        response = client.post(
+            "/resolve",
+            json={
+                "mid": "MID000010",
+                "order_id": "ORD000010",
+                "cust_id": "CUST000010",
+                "complaint": "Money deducted but merchant never received payment",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["groundedness_verified"] is False
+    assert payload["unsupported_claims"] == ["Invented refund amount ₹99999.99"]
+    assert isinstance(payload["response"], str)
+    assert "Explanation:" in payload["response"]
 

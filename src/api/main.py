@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from src.core.groundedness_verifier import verify_groundedness
 from src.core.escalation_rules import determine_escalation
 from src.core.issue_rules import identify_issue
 from src.core.llm_generator import generate_case_note, generate_response, is_llm_configured, is_llm_ready
@@ -50,6 +51,8 @@ class ResolveResponse(BaseModel):
     response: str
     response_mode: str
     case_note: str
+    groundedness_verified: Optional[bool] = None
+    unsupported_claims: List[str] = []
 
 
 @app.get("/health")
@@ -137,6 +140,24 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
         )
         response_mode = "sop_fallback"
 
+    grounding_facts = {
+        "transaction": transaction,
+        "sop_content": sop["content"],
+        "escalation": escalation,
+    }
+    groundedness = verify_groundedness(response_text, grounding_facts)
+
+    if groundedness["verified"] is False:
+        logger.warning(
+            "Groundedness flagged: mid=%s order_id=%s cust_id=%s txn_id=%s "
+            "unsupported_claims=%s",
+            request.mid,
+            request.order_id,
+            request.cust_id,
+            transaction.get("TXN_ID"),
+            groundedness["unsupported_claims"],
+        )
+
     case_note = generate_case_note(
         transaction=transaction,
         issue=issue,
@@ -162,4 +183,6 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
         response=response_text,
         response_mode=response_mode,
         case_note=case_note,
+        groundedness_verified=groundedness["verified"],
+        unsupported_claims=groundedness["unsupported_claims"],
     )

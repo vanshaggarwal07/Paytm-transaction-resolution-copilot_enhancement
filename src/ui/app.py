@@ -118,6 +118,36 @@ def _render_escalation_badge(escalation_required: bool | None, note: str | None)
             st.caption(note)
 
 
+def _render_groundedness_badge(result: dict) -> None:
+    """Show groundedness trust signal before the agent reads the resolution."""
+    verified = result.get("groundedness_verified")
+    unsupported_claims = result.get("unsupported_claims") or []
+
+    if verified is True:
+        st.markdown(
+            '<span style="background-color:#28a745;color:white;padding:4px 10px;'
+            'border-radius:6px;font-weight:600;">Verified</span>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    if verified is None:
+        st.markdown(
+            '<span style="background-color:#ffc107;color:#212529;padding:4px 10px;'
+            'border-radius:6px;font-weight:600;">Could not verify</span>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    st.markdown(
+        '<span style="background-color:#dc3545;color:white;padding:4px 10px;'
+        'border-radius:6px;font-weight:600;">Flagged — review unsupported claims</span>',
+        unsafe_allow_html=True,
+    )
+    for claim in unsupported_claims:
+        st.markdown(f"- {claim}")
+
+
 def main() -> None:
     """Render the dispute resolution form and results."""
     st.set_page_config(page_title="Paytm Resolution Copilot", page_icon="💳", layout="centered")
@@ -174,6 +204,7 @@ def main() -> None:
             "Showing SOP-based guidance (Gemini unavailable). Resolution still works — "
             "refresh your API key in `.env` and restart the servers for AI explanations."
         )
+    _render_groundedness_badge(result)
     st.markdown(result["response"])
     st.caption(f"SOP source: {result.get('sop_source', 'unknown')}")
     st.subheader("Copy case note")
