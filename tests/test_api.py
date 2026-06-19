@@ -1,9 +1,12 @@
 """Tests for the FastAPI resolution endpoints."""
 
+import io
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from PIL import Image, ImageDraw
 
+from src.core.image_extractor import FIELD_NAMES
 from src.core.issue_rules import identify_issue
 from src.core.transaction_lookup import lookup_transaction
 from src.api.main import app
@@ -238,3 +241,79 @@ def test_resolve_includes_flagged_groundedness_when_verifier_fails() -> None:
     assert payload["unsupported_claims"] == ["Invented refund amount ₹99999.99"]
     assert isinstance(payload["response"], str)
     assert "Explanation:" in payload["response"]
+
+
+def _build_test_dashboard_image() -> bytes:
+    """Create a PNG screenshot-like image with fake transaction details."""
+    image = Image.new("RGB", (800, 400), color="white")
+    draw = ImageDraw.Draw(image)
+    text = (
+        "MID: MID000042  ORDER_ID: ORD000042  CUST_ID: CUST000042\n"
+        "Amount: ₹1,499  Mode: UPI  Status: Success"
+    )
+    draw.text((20, 180), text, fill="black")
+
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def test_extract_image_rejects_non_image_content_type() -> None:
+    """POST /extract-image with a non-image upload returns 400."""
+    response = client.post(
+        "/extract-image",
+        files={"file": ("document.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+
+    assert response.status_code == 400
+    assert "Unsupported file type" in response.json()["detail"]
+
+
+def test_extract_image_with_programmatic_png_returns_extraction() -> None:
+    """POST /extract-image with a generated PNG returns all fields and pre_populated."""
+    image_bytes = _build_test_dashboard_image()
+    response = client.post(
+        "/extract-image",
+        files={"file": ("dashboard.png", image_bytes, "image/png")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    print("\n--- /extract-image response ---")
+    for field in FIELD_NAMES:
+        entry = payload[field]
+        print(f"{field}: value={entry['value']!r} confidence={entry['confidence']!r}")
+    print(f"pre_populated: {payload['pre_populated']}")
+    print(f"extraction_warning: {payload['extraction_warning']!r}")
+    print("--- end ---\n")
+
+    for field in FIELD_NAMES:
+        assert field in payload
+        assert "value" in payload[field]
+        assert "confidence" in payload[field]
+    assert isinstance(payload["pre_populated"], dict)
+
+
+def test_extract_image_sets_warning_when_key_identifier_absent() -> None:
+    """extraction_warning is set when a key identifier is absent or low-confidence."""
+    stubbed_extraction = {
+        "MID": {"value": None, "confidence": "absent"},
+        "ORDER_ID": {"value": "ORD000042", "confidence": "high"},
+        "CUST_ID": {"value": "CUST000042", "confidence": "high"},
+        "TXN_AMOUNT": {"value": "1499", "confidence": "high"},
+        "PAYMENT_MODE": {"value": "UPI", "confidence": "high"},
+        "TXN_STATUS": {"value": "Success", "confidence": "high"},
+    }
+
+    with patch("src.api.main.extract_fields_from_image", return_value=stubbed_extraction):
+        response = client.post(
+            "/extract-image",
+            files={"file": ("dashboard.png", b"fake-png-bytes", "image/png")},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["extraction_warning"] is not None
+    assert "verify before submitting" in payload["extraction_warning"]
+    assert "MID" not in payload["pre_populated"]

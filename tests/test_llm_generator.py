@@ -13,12 +13,21 @@ from src.core.transaction_lookup import lookup_transaction
 def _escalation_section_text(response_text: str) -> str:
     """Extract the Escalation section body from a four-section response."""
     match = re.search(
-        r"Escalation:\s*(.+?)(?:\n\s*\n|\nSource:|\Z)",
+        r"\*{0,2}Escalation:\*{0,2}\s*(.+?)(?:\n\s*\n|\n\*{0,2}Source:|\Z)",
         response_text,
         flags=re.IGNORECASE | re.DOTALL,
     )
     assert match, "Escalation section not found in response"
-    return match.group(1).strip()
+    return re.sub(r"^\*+|\*+$", "", match.group(1).strip(), flags=re.MULTILINE)
+
+
+def _first_meaningful_line(text: str) -> str:
+    """Return the first non-empty line with markdown emphasis stripped."""
+    for line in text.splitlines():
+        cleaned = re.sub(r"^\*+|\*+$", "", line).strip()
+        if cleaned:
+            return cleaned.lower()
+    return ""
 
 
 def test_generate_response_with_real_pipeline() -> None:
@@ -66,7 +75,7 @@ def test_generate_response_with_real_pipeline() -> None:
     assert "Source:" in response_text
 
     escalation_text = _escalation_section_text(response_text)
-    first_line = escalation_text.splitlines()[0].strip().lower()
+    first_line = _first_meaningful_line(escalation_text)
     if escalation["escalation_required"]:
         assert first_line.startswith("yes"), (
             f"Escalation section contradicts pre-computed decision: {escalation_text!r}"

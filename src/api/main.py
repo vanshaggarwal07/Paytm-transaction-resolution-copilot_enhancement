@@ -6,11 +6,17 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from src.core.copilot_graph import COPILOT_GRAPH
 from src.core.graph_state import CopilotState
+from src.core.image_extractor import (
+    ALLOWED_MEDIA_TYPES,
+    FIELD_NAMES,
+    extract_fields_from_image,
+    get_high_confidence_fields,
+)
 from src.core.llm_generator import is_llm_configured, is_llm_ready
 
 logger = logging.getLogger(__name__)
@@ -69,6 +75,33 @@ class ClarificationNeededResponse(BaseModel):
 
     status: Literal["clarification_needed"]
     clarifying_questions: List[str]
+
+
+class ExtractedField(BaseModel):
+    """One vision-extracted transaction field with confidence."""
+
+    value: Optional[str]
+    confidence: str
+
+
+class ImageExtractionResponse(BaseModel):
+    """Vision extraction payload for pre-populating the resolve form."""
+
+    MID: ExtractedField
+    ORDER_ID: ExtractedField
+    CUST_ID: ExtractedField
+    TXN_AMOUNT: ExtractedField
+    PAYMENT_MODE: ExtractedField
+    TXN_STATUS: ExtractedField
+    pre_populated: Dict[str, str]
+    extraction_warning: Optional[str] = None
+
+
+KEY_IDENTIFIER_FIELDS: tuple[str, ...] = ("MID", "ORDER_ID", "CUST_ID")
+EXTRACTION_WARNING_MESSAGE = (
+    "One or more key identifiers could not be extracted with confidence — "
+    "please verify before submitting."
+)
 
 
 def _build_initial_state(request: ResolveRequest) -> CopilotState:
@@ -266,3 +299,60 @@ def resolve(
         )
 
     return _build_resolve_response(final_state)
+
+
+def _build_extraction_warning(extraction: dict[str, Any]) -> Optional[str]:
+    """Return amber warning text when key identifiers are low-confidence or absent."""
+    for field in KEY_IDENTIFIER_FIELDS:
+        entry = extraction.get(field) or {}
+        confidence = str(entry.get("confidence", "absent")).strip().lower()
+        if confidence in {"low", "absent"}:
+            return EXTRACTION_WARNING_MESSAGE
+    return None
+
+
+def _build_image_extraction_response(extraction: dict[str, Any]) -> ImageExtractionResponse:
+    """Map raw vision extraction into the API response model."""
+    field_payload = {
+        field: ExtractedField(
+            value=(extraction.get(field) or {}).get("value"),
+            confidence=str((extraction.get(field) or {}).get("confidence", "absent")),
+        )
+        for field in FIELD_NAMES
+    }
+    return ImageExtractionResponse(
+        **field_payload,
+        pre_populated=get_high_confidence_fields(extraction),
+        extraction_warning=_build_extraction_warning(extraction),
+    )
+
+
+@app.post("/extract-image", response_model=ImageExtractionResponse)
+async def extract_image(file: UploadFile = File(...)) -> ImageExtractionResponse:
+    """Extract transaction identifiers from a dashboard screenshot.
+
+    Accepts multipart form upload (PNG, JPEG, or WebP). Returns per-field
+    confidence levels plus ``pre_populated`` values for the resolve form.
+    This is a pre-step only — agents should review and edit before POST /resolve.
+    """
+    content_type = (file.content_type or "").strip().lower()
+    if content_type not in ALLOWED_MEDIA_TYPES:
+        allowed = ", ".join(sorted(ALLOWED_MEDIA_TYPES))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type {file.content_type!r}. Allowed types: {allowed}.",
+        )
+
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    logger.info(
+        "extract-image request: filename=%r content_type=%s bytes=%s",
+        file.filename,
+        content_type,
+        len(image_bytes),
+    )
+
+    extraction = extract_fields_from_image(image_bytes, content_type)
+    return _build_image_extraction_response(extraction)

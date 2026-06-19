@@ -5,8 +5,10 @@ faiss-cpu
 google-genai
 fastapi
 uvicorn
+python-multipart
 streamlit
 pytest
 python-dotenv
 langgraph
 langchain-core
+Pillow

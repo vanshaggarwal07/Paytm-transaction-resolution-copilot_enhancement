@@ -12,16 +12,30 @@ logger = logging.getLogger(__name__)
 
 API_HEALTH_URL = "http://localhost:8000/health"
 API_RESOLVE_URL = "http://localhost:8000/resolve"
+API_EXTRACT_IMAGE_URL = "http://localhost:8000/extract-image"
 REQUEST_TIMEOUT_SECONDS = 120
+
+MODE_MANUAL = "Manual Input"
+MODE_UPLOAD = "Upload Screenshot"
 
 UI_PHASE_INITIAL = "initial"
 UI_PHASE_CLARIFICATION = "clarification"
+
+SCREENSHOT_FIELDS: tuple[tuple[str, str], ...] = (
+    ("MID", "MID"),
+    ("ORDER_ID", "Order ID"),
+    ("CUST_ID", "Customer ID"),
+    ("TXN_AMOUNT", "Transaction amount"),
+    ("PAYMENT_MODE", "Payment mode"),
+    ("TXN_STATUS", "Transaction status"),
+)
 
 
 def _init_session_state() -> None:
     """Ensure session keys exist for the two-phase resolve flow."""
     defaults = {
         "ui_phase": UI_PHASE_INITIAL,
+        "input_mode": MODE_MANUAL,
         "mid": "",
         "order_id": "",
         "cust_id": "",
@@ -29,6 +43,13 @@ def _init_session_state() -> None:
         "agent_answers": "",
         "clarifying_questions": [],
         "result": None,
+        "extraction": None,
+        "extraction_failed": False,
+        "extraction_warning": None,
+        "screenshot_field_values": {
+            field: "" for field, _ in SCREENSHOT_FIELDS
+        },
+        "screenshot_complaint": "",
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -107,6 +128,45 @@ def _call_resolve_api(
     except ValueError as exc:
         logger.error("Invalid JSON from API: %s", exc)
         return None, "Received an invalid response from the API.", response.status_code
+
+
+def _call_extract_image_api(
+    image_bytes: bytes,
+    filename: str,
+    content_type: str,
+) -> tuple[dict | None, str | None]:
+    """POST screenshot bytes to /extract-image."""
+    try:
+        response = requests.post(
+            API_EXTRACT_IMAGE_URL,
+            files={"file": (filename, image_bytes, content_type)},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.ConnectionError:
+        logger.error("Could not connect to API at %s", API_EXTRACT_IMAGE_URL)
+        return None, (
+            "Could not reach the extraction API at localhost:8000. "
+            "Make sure the FastAPI server is running."
+        )
+    except requests.Timeout:
+        return None, "Screenshot extraction timed out. Please try again."
+    except requests.RequestException as exc:
+        logger.error("Extract-image request failed: %s", exc)
+        return None, "Something went wrong while contacting the API. Please try again."
+
+    if response.status_code != 200:
+        logger.error("Extract-image returned status %s: %s", response.status_code, response.text)
+        try:
+            detail = response.json().get("detail")
+        except ValueError:
+            detail = response.text
+        return None, detail or "Screenshot extraction failed."
+
+    try:
+        return response.json(), None
+    except ValueError as exc:
+        logger.error("Invalid JSON from extract-image API: %s", exc)
+        return None, "Received an invalid response from the extraction API."
 
 
 def _confidence_for_intent(
@@ -259,25 +319,25 @@ def _render_retrieval_breakdown(result: dict) -> None:
         st.progress(min(max(structural, 0.0), 1.0))
 
 
-def _render_resolution_result(result: dict, complaint_provided: bool) -> None:
+def render_resolution(response: dict, complaint_provided: bool) -> None:
     """Render the full resolution panel from a completed /resolve response."""
-    primary_issue = result.get("primary_issue") or result.get("issue", "Unknown")
+    primary_issue = response.get("primary_issue") or response.get("issue", "Unknown")
     st.markdown(f"## **{primary_issue}**")
-    _render_escalation_badge(result.get("escalation_required"), result.get("escalation_note"))
-    _render_intent_panel(result, complaint_provided)
-    if result.get("response_mode") == "sop_fallback":
+    _render_escalation_badge(response.get("escalation_required"), response.get("escalation_note"))
+    _render_intent_panel(response, complaint_provided)
+    if response.get("response_mode") == "sop_fallback":
         st.info(
             "Showing SOP-based guidance (Gemini unavailable). Resolution still works — "
             "refresh your API key in `.env` and restart the servers for AI explanations."
         )
-    _render_groundedness_badge(result)
-    st.markdown(result["response"])
-    st.caption(f"SOP source: {result.get('sop_source', 'unknown')}")
-    _render_retrieval_breakdown(result)
+    _render_groundedness_badge(response)
+    st.markdown(response["response"])
+    st.caption(f"SOP source: {response.get('sop_source', 'unknown')}")
+    _render_retrieval_breakdown(response)
     st.subheader("Copy case note")
     st.text_area(
         "Case note",
-        value=result.get("case_note", ""),
+        value=response.get("case_note", ""),
         height=140,
         label_visibility="collapsed",
     )
@@ -308,8 +368,47 @@ def _handle_resolve_response(
     st.session_state.result = payload
 
 
-def _render_initial_form() -> None:
-    """State 1: initial transaction lookup and optional complaint."""
+def _confidence_tag_html(confidence: str) -> str:
+    """Return a small coloured confidence tag for screenshot field rows."""
+    normalized = (confidence or "absent").strip().lower()
+    if normalized == "high":
+        return (
+            '<span style="color:#28a745;font-size:0.85rem;">'
+            "● High confidence</span>"
+        )
+    if normalized == "medium":
+        return (
+            '<span style="color:#ffc107;font-size:0.85rem;">'
+            "● Verify</span>"
+        )
+    return (
+        '<span style="color:#dc3545;font-size:0.85rem;">'
+        "● Not found — enter manually</span>"
+    )
+
+
+def _apply_extraction_to_fields(extraction: dict[str, Any]) -> None:
+    """Populate editable screenshot fields from an extraction response."""
+    pre_populated = extraction.get("pre_populated") or {}
+    for field, _label in SCREENSHOT_FIELDS:
+        entry = extraction.get(field) or {}
+        value = entry.get("value")
+        st.session_state.screenshot_field_values[field] = (
+            pre_populated.get(field)
+            or (str(value) if value is not None else "")
+            or ""
+        )
+
+
+def _upload_content_type(uploaded_file: Any) -> str:
+    """Map Streamlit upload metadata to an API-supported MIME type."""
+    if uploaded_file.type == "image/jpg":
+        return "image/jpeg"
+    return uploaded_file.type or "image/png"
+
+
+def _render_manual_form() -> None:
+    """Manual input mode: existing MID / order / customer / complaint form."""
     with st.form("resolve_form"):
         mid = st.text_input("MID", value=st.session_state.mid, placeholder="e.g. MID000002")
         order_id = st.text_input(
@@ -334,7 +433,7 @@ def _render_initial_form() -> None:
     if not submitted:
         if st.session_state.result is not None:
             complaint_provided = bool(st.session_state.complaint.strip())
-            _render_resolution_result(st.session_state.result, complaint_provided)
+            render_resolution(st.session_state.result, complaint_provided)
         return
 
     if not mid.strip() or not order_id.strip() or not cust_id.strip():
@@ -365,6 +464,113 @@ def _render_initial_form() -> None:
     st.rerun()
 
 
+def _render_upload_mode() -> None:
+    """Screenshot upload mode: extract fields from image, then resolve."""
+    uploaded_file = st.file_uploader(
+        "Upload a transaction dashboard screenshot",
+        type=["png", "jpg", "jpeg", "webp"],
+    )
+
+    if uploaded_file is not None:
+        st.image(uploaded_file, caption="Uploaded screenshot", use_container_width=True)
+
+    if st.button("Extract fields", type="secondary"):
+        if uploaded_file is None:
+            st.warning("Upload a screenshot before extracting fields.")
+        else:
+            image_bytes = uploaded_file.getvalue()
+            with st.spinner("Reading screenshot..."):
+                payload, error_message = _call_extract_image_api(
+                    image_bytes,
+                    uploaded_file.name,
+                    _upload_content_type(uploaded_file),
+                )
+
+            if error_message:
+                st.error("Extraction failed — please enter the fields manually.")
+                st.session_state.extraction = None
+                st.session_state.extraction_failed = True
+                st.session_state.extraction_warning = None
+                st.session_state.screenshot_field_values = {
+                    field: "" for field, _ in SCREENSHOT_FIELDS
+                }
+            else:
+                assert payload is not None
+                st.session_state.extraction = payload
+                st.session_state.extraction_failed = False
+                st.session_state.extraction_warning = payload.get("extraction_warning")
+                _apply_extraction_to_fields(payload)
+
+    show_fields = (
+        st.session_state.extraction is not None or st.session_state.extraction_failed
+    )
+
+    if show_fields:
+        if st.session_state.extraction_warning:
+            st.warning(st.session_state.extraction_warning)
+
+        st.subheader("Extracted fields")
+        for field, label in SCREENSHOT_FIELDS:
+            entry = (st.session_state.extraction or {}).get(field, {})
+            confidence = str(entry.get("confidence", "absent"))
+            col_input, col_tag = st.columns([4, 1])
+            with col_input:
+                st.session_state.screenshot_field_values[field] = st.text_input(
+                    label,
+                    value=st.session_state.screenshot_field_values.get(field, ""),
+                    key=f"screenshot_field_{field}",
+                )
+            with col_tag:
+                st.markdown(_confidence_tag_html(confidence), unsafe_allow_html=True)
+
+        screenshot_complaint = st.text_area(
+            "Customer complaint (optional)",
+            value=st.session_state.screenshot_complaint,
+            placeholder="Paste the customer's message here…",
+            height=120,
+            key="screenshot_complaint_input",
+        )
+        st.session_state.screenshot_complaint = screenshot_complaint
+        st.caption("Hindi, English or Hinglish — all supported.")
+
+        if st.button("Resolve", type="primary"):
+            mid = st.session_state.screenshot_field_values.get("MID", "").strip()
+            order_id = st.session_state.screenshot_field_values.get("ORDER_ID", "").strip()
+            cust_id = st.session_state.screenshot_field_values.get("CUST_ID", "").strip()
+
+            if not mid or not order_id or not cust_id:
+                st.warning("MID, Order ID, and Customer ID are required.")
+                return
+
+            with st.spinner("Resolving transaction…"):
+                payload, error_message, status_code = _call_resolve_api(
+                    mid,
+                    order_id,
+                    cust_id,
+                    screenshot_complaint,
+                )
+
+            if error_message:
+                st.error(error_message)
+                if status_code == 404:
+                    _reset_to_initial()
+                return
+
+            assert payload is not None
+            _handle_resolve_response(
+                payload,
+                mid=mid,
+                order_id=order_id,
+                cust_id=cust_id,
+                complaint=screenshot_complaint,
+            )
+            st.rerun()
+
+    if st.session_state.result is not None and st.session_state.ui_phase == UI_PHASE_INITIAL:
+        complaint_provided = bool(st.session_state.screenshot_complaint.strip())
+        render_resolution(st.session_state.result, complaint_provided)
+
+
 def _render_clarification_form() -> None:
     """State 2: collect agent answers to clarifying questions."""
     st.markdown("### The assistant needs more information")
@@ -382,6 +588,7 @@ def _render_clarification_form() -> None:
             st.session_state.order_id = ""
             st.session_state.cust_id = ""
             st.session_state.complaint = ""
+            st.session_state.screenshot_complaint = ""
             st.rerun()
         return
 
@@ -410,6 +617,7 @@ def _render_clarification_form() -> None:
         st.session_state.order_id = ""
         st.session_state.cust_id = ""
         st.session_state.complaint = ""
+        st.session_state.screenshot_complaint = ""
         st.rerun()
 
     if not submit_answers:
@@ -423,11 +631,16 @@ def _render_clarification_form() -> None:
     st.session_state.agent_answers = agent_answers
 
     with st.spinner("Resolving with your answers…"):
+        complaint = (
+            st.session_state.complaint
+            if st.session_state.input_mode == MODE_MANUAL
+            else st.session_state.screenshot_complaint
+        )
         payload, error_message, status_code = _call_resolve_api(
             st.session_state.mid,
             st.session_state.order_id,
             st.session_state.cust_id,
-            st.session_state.complaint,
+            complaint,
             agent_answers=agent_answers,
         )
 
@@ -439,6 +652,7 @@ def _render_clarification_form() -> None:
             st.session_state.order_id = ""
             st.session_state.cust_id = ""
             st.session_state.complaint = ""
+            st.session_state.screenshot_complaint = ""
             st.rerun()
         return
 
@@ -453,7 +667,7 @@ def _render_clarification_form() -> None:
         mid=st.session_state.mid,
         order_id=st.session_state.order_id,
         cust_id=st.session_state.cust_id,
-        complaint=st.session_state.complaint,
+        complaint=complaint,
     )
     st.rerun()
 
@@ -482,11 +696,24 @@ def main() -> None:
     except requests.RequestException:
         st.warning("API health check failed — start FastAPI on port 8000 before resolving.")
 
+    input_mode = st.radio(
+        "Input mode",
+        [MODE_MANUAL, MODE_UPLOAD],
+        index=0 if st.session_state.input_mode == MODE_MANUAL else 1,
+        horizontal=True,
+        key="input_mode_radio",
+    )
+    st.session_state.input_mode = input_mode
+
     if st.session_state.ui_phase == UI_PHASE_CLARIFICATION:
         _render_clarification_form()
         return
 
-    _render_initial_form()
+    if input_mode == MODE_UPLOAD:
+        _render_upload_mode()
+        return
+
+    _render_manual_form()
 
 
 if __name__ == "__main__":
