@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import requests
 import streamlit as st
@@ -68,29 +69,82 @@ def _call_resolve_api(
         return None, "Received an invalid response from the API."
 
 
-def _render_signal_agreement_badge(result: dict) -> None:
-    """Show whether rule-engine and complaint-derived signals agree."""
-    agreement = result.get("agreement", True)
-    primary_issue = result.get("primary_issue") or result.get("issue", "Unknown")
-    secondary_issue = result.get("secondary_issue")
+def _confidence_for_intent(
+    extracted_intents: list[dict[str, Any]],
+    intent_name: str,
+) -> str:
+    """Return the confidence level for a named intent from extracted intents."""
+    for intent in extracted_intents:
+        if intent.get("intent") == intent_name:
+            confidence = intent.get("confidence")
+            if isinstance(confidence, str) and confidence.strip():
+                return confidence.strip()
+    return "unknown"
 
-    if agreement:
-        st.markdown(
-            '<span style="background-color:#28a745;color:white;padding:4px 10px;'
-            'border-radius:6px;font-weight:600;">Signals aligned</span>',
-            unsafe_allow_html=True,
-        )
+
+def _render_intent_panel(result: dict, complaint_provided: bool) -> None:
+    """Show intent reconciliation below the escalation badge."""
+    if not complaint_provided:
         return
 
-    st.markdown(
-        '<span style="background-color:#ffc107;color:#212529;padding:4px 10px;'
-        'border-radius:6px;font-weight:600;">Needs review</span>',
-        unsafe_allow_html=True,
-    )
-    if secondary_issue:
+    agreement = result.get("agreement", True)
+    conflict = result.get("conflict", False)
+    unresolved_intents = result.get("unresolved_intents") or []
+    extracted_intents = result.get("extracted_intents") or []
+    reconciliation_note = result.get("reconciliation_note", "")
+
+    st.subheader("Intent Analysis")
+
+    if conflict:
         st.markdown(
-            f"Transaction data suggests **{primary_issue}**, but the complaint text "
-            f"more closely matches **{secondary_issue}**."
+            '<span style="background-color:#dc3545;color:white;padding:4px 10px;'
+            'border-radius:6px;font-weight:600;">Signal conflict detected</span>',
+            unsafe_allow_html=True,
+        )
+        if reconciliation_note:
+            st.markdown(reconciliation_note)
+        if extracted_intents:
+            st.markdown("**What the complaint is signalling:**")
+            for intent in extracted_intents:
+                name = intent.get("intent", "Unknown")
+                confidence = intent.get("confidence", "unknown")
+                evidence = intent.get("evidence", "")
+                st.markdown(
+                    f"- **{name}** ({confidence} confidence)"
+                    + (f' — *"{evidence}"*' if evidence else "")
+                )
+        st.caption("Apply judgment before acting — transaction data and complaint signals disagree.")
+        return
+
+    if agreement and not unresolved_intents:
+        st.markdown(
+            '<span style="background-color:#28a745;color:white;padding:4px 10px;'
+            'border-radius:6px;font-weight:600;">All signals aligned</span>',
+            unsafe_allow_html=True,
+        )
+        if reconciliation_note:
+            st.caption(reconciliation_note)
+        return
+
+    if agreement and unresolved_intents:
+        st.markdown(
+            '<span style="background-color:#28a745;color:white;padding:4px 10px;'
+            'border-radius:6px;font-weight:600;">Primary confirmed</span>',
+            unsafe_allow_html=True,
+        )
+        if reconciliation_note:
+            st.caption(reconciliation_note)
+        st.markdown(
+            '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;'
+            'padding:10px 12px;margin-top:8px;border-radius:4px;">'
+            "<strong>Additional signals detected</strong></div>",
+            unsafe_allow_html=True,
+        )
+        for intent_name in unresolved_intents:
+            confidence = _confidence_for_intent(extracted_intents, intent_name)
+            st.markdown(f"- **{intent_name}** ({confidence} confidence)")
+        st.caption(
+            "Primary issue is solid, but review these secondary signals before closing the case."
         )
 
 
@@ -179,6 +233,7 @@ def main() -> None:
             placeholder="Paste the customer's message here…",
             height=120,
         )
+        st.caption("Hindi, English or Hinglish — all supported.")
         submitted = st.form_submit_button("Resolve")
 
     if not submitted:
@@ -188,6 +243,8 @@ def main() -> None:
         st.warning("MID, Order ID, and Customer ID are required.")
         return
 
+    complaint_provided = bool(complaint.strip())
+
     with st.spinner("Resolving transaction…"):
         result, error_message = _call_resolve_api(mid, order_id, cust_id, complaint)
 
@@ -196,9 +253,10 @@ def main() -> None:
         return
 
     assert result is not None
-    _render_signal_agreement_badge(result)
-    st.header(result["issue"])
+    primary_issue = result.get("primary_issue") or result.get("issue", "Unknown")
+    st.markdown(f"## **{primary_issue}**")
     _render_escalation_badge(result.get("escalation_required"), result.get("escalation_note"))
+    _render_intent_panel(result, complaint_provided)
     if result.get("response_mode") == "sop_fallback":
         st.info(
             "Showing SOP-based guidance (Gemini unavailable). Resolution still works — "

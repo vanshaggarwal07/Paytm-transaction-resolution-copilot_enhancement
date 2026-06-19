@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any
 
-from src.core.llm_generator import _extract_response_text, _get_client, _resolve_model_name
+from src.core.llm_generator import generate_content_with_model_fallback, _get_client
 
 logger = logging.getLogger(__name__)
 
@@ -80,12 +80,7 @@ def verify_groundedness(response_text: str, grounding_facts: dict[str, Any]) -> 
         }
 
     try:
-        model_name = _resolve_model_name(client)
-        if model_name is None:
-            raise RuntimeError("No Gemini model could be resolved for verification")
-
-        response = client.models.generate_content(model=model_name, contents=prompt)
-        raw_output = _extract_response_text(response)
+        raw_output, _model_name = generate_content_with_model_fallback(client, prompt)
         if not raw_output:
             raise RuntimeError("Gemini verifier returned an empty response")
 

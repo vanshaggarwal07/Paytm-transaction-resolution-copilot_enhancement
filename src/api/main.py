@@ -45,6 +45,10 @@ class ResolveResponse(BaseModel):
     primary_issue: str
     secondary_issue: Optional[str] = None
     agreement: bool
+    extracted_intents: List[Dict[str, Any]] = []
+    unresolved_intents: List[str] = []
+    conflict: bool = False
+    reconciliation_note: str = ""
     sop_source: str
     escalation_required: Optional[bool] = None
     escalation_note: Optional[str] = None
@@ -101,23 +105,22 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
         )
 
     issue = identify_issue(transaction)
-    signals = reconcile_signals(issue, request.complaint)
+    signals = reconcile_signals(issue, request.complaint, transaction)
     logger.info(
-        "identified issue: %s for mid=%s order_id=%s cust_id=%s (agreement=%s)",
-        issue,
+        "signal reconciliation: mid=%s order_id=%s cust_id=%s reconciliation=%s",
         request.mid,
         request.order_id,
         request.cust_id,
-        signals["agreement"],
+        signals,
     )
 
-    # Use the rule-engine issue name for retrieval: SOP headings match taxonomy
-    # exactly, while complaint text can describe the wrong issue or use vague wording.
-    sop_results = retrieve_sop(issue, top_k=1)
+    primary_issue = signals["primary_issue"]
+    # Rule-engine primary_issue is ground truth for SOP retrieval and LLM grounding.
+    sop_results = retrieve_sop(primary_issue, top_k=1)
     if not sop_results:
         raise HTTPException(
             status_code=500,
-            detail=f"No SOP found for identified issue: {issue}.",
+            detail=f"No SOP found for identified issue: {primary_issue}.",
         )
 
     sop = sop_results[0]
@@ -128,7 +131,7 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
     try:
         response_text, response_mode = generate_response(
             transaction=transaction,
-            issue=issue,
+            issue=primary_issue,
             sop=sop,
             escalation=escalation,
             complaint=request.complaint,
@@ -136,7 +139,7 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
     except Exception as exc:
         logger.exception("Resolution pipeline failed for ORDER_ID=%s: %s", request.order_id, exc)
         response_text = build_sop_fallback_response(
-            transaction, issue, sop, escalation, request.complaint
+            transaction, primary_issue, sop, escalation, request.complaint
         )
         response_mode = "sop_fallback"
 
@@ -160,7 +163,7 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
 
     case_note = generate_case_note(
         transaction=transaction,
-        issue=issue,
+        issue=primary_issue,
         escalation=escalation,
         resolution_summary=response_text,
     )
@@ -175,8 +178,14 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
     return ResolveResponse(
         issue=signals["primary_issue"],
         primary_issue=signals["primary_issue"],
-        secondary_issue=signals["secondary_issue"],
+        secondary_issue=(
+            signals["unresolved_intents"][0] if signals["unresolved_intents"] else None
+        ),
         agreement=signals["agreement"],
+        extracted_intents=signals["extracted_intents"],
+        unresolved_intents=signals["unresolved_intents"],
+        conflict=signals["conflict"],
+        reconciliation_note=signals["reconciliation_note"],
         sop_source=sop_source,
         escalation_required=escalation["escalation_required"],
         escalation_note=escalation_note,

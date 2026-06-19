@@ -20,13 +20,15 @@ _ENV_PATH = _PROJECT_ROOT / ".env"
 
 load_dotenv(_ENV_PATH, override=True)
 
-DEFAULT_MODEL = "gemini-2.0-flash"
+DEFAULT_MODEL = "gemini-3.1-flash-lite"
 FALLBACK_MODEL_CANDIDATES: tuple[str, ...] = (
-    "gemini-2.0-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-flash-latest",
+    "gemini-2.0-flash-lite",
     "gemini-2.5-flash",
-    "gemini-2.5-flash-preview-05-20",
-    "gemini-1.5-flash",
-    "gemini-3.5-flash",
+    "gemini-2.0-flash",
 )
 
 _ACTIVE_MODEL: Optional[str] = None
@@ -82,6 +84,77 @@ def _is_auth_error(exc: Exception) -> bool:
     return "401" in message or "unauthenticated" in message or "invalid authentication" in message
 
 
+def _is_quota_error(exc: Exception) -> bool:
+    """Return True when Gemini rejected the request due to rate or quota limits."""
+    message = str(exc).lower()
+    return "429" in message or "resource_exhausted" in message or "quota" in message
+
+
+def _list_flash_model_names(client: genai.Client) -> set[str]:
+    """Return flash-tier model short names advertised by the Gemini API."""
+    names: set[str] = set()
+    try:
+        for model in client.models.list():
+            model_name = getattr(model, "name", "") or ""
+            short_name = model_name.split("/")[-1]
+            if "flash" in short_name.lower():
+                names.add(short_name)
+    except Exception as exc:
+        logger.error("Failed to list Gemini models: %s", exc)
+    return names
+
+
+def _ordered_model_candidates(client: genai.Client) -> list[str]:
+    """Return configured fallback candidates that exist in the Gemini API."""
+    available = _list_flash_model_names(client)
+    ordered = [model for model in FALLBACK_MODEL_CANDIDATES if model in available]
+    if ordered:
+        return ordered
+    return [model for model in FALLBACK_MODEL_CANDIDATES]
+
+
+def generate_content_with_model_fallback(
+    client: genai.Client,
+    contents: str,
+) -> tuple[str, str]:
+    """Generate content, trying fallback models when quota or availability errors occur."""
+    global _ACTIVE_MODEL
+
+    candidates = _ordered_model_candidates(client)
+    if not candidates:
+        raise RuntimeError("No Gemini flash models are available for this API key")
+
+    if _ACTIVE_MODEL and _ACTIVE_MODEL in candidates:
+        candidates = [_ACTIVE_MODEL] + [model for model in candidates if model != _ACTIVE_MODEL]
+
+    last_exc: Optional[Exception] = None
+    for model_name in candidates:
+        try:
+            response = client.models.generate_content(model=model_name, contents=contents)
+            text = _extract_response_text(response)
+            _ACTIVE_MODEL = model_name
+            if model_name != DEFAULT_MODEL:
+                logger.info("Using Gemini model %s", model_name)
+            return text, model_name
+        except Exception as exc:
+            if _is_auth_error(exc):
+                raise
+            last_exc = exc
+            if _is_quota_error(exc):
+                logger.warning(
+                    "Gemini model %s quota exhausted, trying next candidate",
+                    model_name,
+                )
+                if _ACTIVE_MODEL == model_name:
+                    _ACTIVE_MODEL = None
+                continue
+            logger.warning("Gemini model %s unavailable: %s", model_name, exc)
+
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("No Gemini model could generate content")
+
+
 def is_llm_ready() -> bool:
     """Return True when Gemini accepts the configured API key."""
     global _llm_ready, _ACTIVE_MODEL
@@ -96,21 +169,18 @@ def is_llm_ready() -> bool:
     client = _get_client()
     assert client is not None
 
-    for candidate in FALLBACK_MODEL_CANDIDATES:
-        try:
-            client.models.generate_content(model=candidate, contents="Reply with OK.")
-            _ACTIVE_MODEL = candidate
-            _llm_ready = True
-            return True
-        except Exception as exc:
-            if _is_auth_error(exc):
-                logger.error("Gemini rejected the API key: %s", exc)
-                _llm_ready = False
-                return False
-            logger.warning("Gemini model %s unavailable during readiness check: %s", candidate, exc)
-
-    _llm_ready = False
-    return False
+    try:
+        _, model_name = generate_content_with_model_fallback(client, "Reply with OK.")
+        _ACTIVE_MODEL = model_name
+        _llm_ready = True
+        return True
+    except Exception as exc:
+        if _is_auth_error(exc):
+            logger.error("Gemini rejected the API key: %s", exc)
+        else:
+            logger.warning("Gemini readiness check failed: %s", exc)
+        _llm_ready = False
+        return False
 
 
 RESPONSE_PROMPT_TEMPLATE = """You are a Paytm payment support copilot helping a human agent.
@@ -270,27 +340,17 @@ def _find_flash_model(client: genai.Client) -> Optional[str]:
 
 
 def _resolve_model_name(client: genai.Client) -> Optional[str]:
-    """Resolve the Gemini model name, falling back if the default is unavailable."""
+    """Return the cached or preferred Gemini model without burning quota on probes."""
     global _ACTIVE_MODEL
 
     if _ACTIVE_MODEL is not None:
         return _ACTIVE_MODEL
 
-    for candidate in FALLBACK_MODEL_CANDIDATES:
-        try:
-            client.models.generate_content(model=candidate, contents="Reply with OK.")
-            _ACTIVE_MODEL = candidate
-            if candidate != DEFAULT_MODEL:
-                logger.warning("Using Gemini model %s (default %s unavailable)", candidate, DEFAULT_MODEL)
-            return candidate
-        except Exception as exc:
-            if _is_auth_error(exc):
-                logger.error("Gemini rejected the API key while resolving model: %s", exc)
-                return None
-            logger.warning("Gemini model %s unavailable: %s", candidate, exc)
+    candidates = _ordered_model_candidates(client)
+    if candidates:
+        return candidates[0]
 
-    _ACTIVE_MODEL = _find_flash_model(client)
-    return _ACTIVE_MODEL
+    return _find_flash_model(client)
 
 
 def generate_response(
@@ -312,12 +372,7 @@ def generate_response(
     prompt = _build_prompt(transaction, issue, sop, escalation, complaint)
 
     try:
-        model_name = _resolve_model_name(client)
-        if model_name is None:
-            raise RuntimeError("No Gemini model could be resolved")
-
-        response = client.models.generate_content(model=model_name, contents=prompt)
-        text = _extract_response_text(response)
+        text, _model_name = generate_content_with_model_fallback(client, prompt)
         if text:
             return text, "gemini"
         logger.error("Gemini returned an empty response for issue %r", issue)
@@ -346,12 +401,7 @@ def generate_case_note(
     prompt = _build_case_note_prompt(transaction, issue, escalation, resolution_summary)
 
     try:
-        model_name = _resolve_model_name(client)
-        if model_name is None:
-            raise RuntimeError("No Gemini model could be resolved")
-
-        response = client.models.generate_content(model=model_name, contents=prompt)
-        text = _extract_response_text(response)
+        text, _model_name = generate_content_with_model_fallback(client, prompt)
         if text:
             return text
         logger.error("Gemini returned an empty case note for issue %r", issue)

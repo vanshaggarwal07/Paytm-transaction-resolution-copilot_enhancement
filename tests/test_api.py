@@ -71,12 +71,11 @@ def test_resolve_unknown_transaction_returns_404() -> None:
     assert "No transaction found" in response.json()["detail"]
 
 
-def test_resolve_divergent_complaint_returns_signal_disagreement() -> None:
-    """Rule-engine issue stays primary when complaint retrieval disagrees."""
+def test_resolve_conflict_case_returns_reconciliation_fields() -> None:
+    """Chargeback complaint against Settlement Delay transaction surfaces conflict fields."""
     transaction = lookup_transaction("MID000002", "ORD000002", "CUST000002")
     assert transaction is not None
-    expected_issue = identify_issue(transaction)
-    assert expected_issue == "Settlement Delay"
+    assert identify_issue(transaction) == "Settlement Delay"
 
     chargeback_complaint = (
         "The card issuer raised a chargeback dispute on a previously successful "
@@ -97,19 +96,65 @@ def test_resolve_divergent_complaint_returns_signal_disagreement() -> None:
     assert response.status_code == 200
     payload = response.json()
 
-    print("\n--- divergent /resolve response ---")
+    print("\n--- conflict /resolve response ---")
     print(f"primary_issue: {payload['primary_issue']}")
-    print(f"secondary_issue: {payload['secondary_issue']}")
+    print(f"conflict: {payload['conflict']}")
     print(f"agreement: {payload['agreement']}")
-    print(f"issue (legacy): {payload['issue']}")
-    print(f"sop_source: {payload['sop_source']}")
+    print(f"unresolved_intents: {payload['unresolved_intents']}")
+    print(f"extracted_intents: {payload['extracted_intents']}")
+    print(f"reconciliation_note: {payload['reconciliation_note']}")
     print("--- end ---\n")
 
-    assert payload["agreement"] is False
     assert payload["primary_issue"] == "Settlement Delay"
-    assert payload["issue"] == "Settlement Delay"
-    assert payload["secondary_issue"] == "Chargeback / Dispute"
+    assert payload["agreement"] is False
+    assert payload["conflict"] is True
+    assert "Chargeback / Dispute" in payload["unresolved_intents"]
+    assert isinstance(payload["extracted_intents"], list)
+    assert len(payload["extracted_intents"]) >= 1
+    assert "conflict" in payload["reconciliation_note"].lower()
     assert payload["sop_source"] == "settlement_delay.md"
+
+
+def test_resolve_multi_intent_case_returns_secondary_signals() -> None:
+    """Settlement Delay transaction with chargeback language surfaces unresolved secondary intents."""
+    transaction = lookup_transaction("MID000002", "ORD000002", "CUST000002")
+    assert transaction is not None
+    assert identify_issue(transaction) == "Settlement Delay"
+
+    complaint = (
+        "Settlement for this successful Wallet payment is still pending on my dashboard, "
+        "but I also contacted my bank because I don't recognise this transaction at all."
+    )
+
+    response = client.post(
+        "/resolve",
+        json={
+            "mid": "MID000002",
+            "order_id": "ORD000002",
+            "cust_id": "CUST000002",
+            "complaint": complaint,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    print("\n--- multi-intent /resolve response ---")
+    print(f"primary_issue: {payload['primary_issue']}")
+    print(f"conflict: {payload['conflict']}")
+    print(f"agreement: {payload['agreement']}")
+    print(f"unresolved_intents: {payload['unresolved_intents']}")
+    print(f"extracted_intents: {payload['extracted_intents']}")
+    print(f"reconciliation_note: {payload['reconciliation_note']}")
+    print("--- end ---\n")
+
+    assert payload["primary_issue"] == "Settlement Delay"
+    assert payload["agreement"] is True
+    assert payload["conflict"] is False
+    assert "Chargeback / Dispute" in payload["unresolved_intents"]
+    assert len(payload["extracted_intents"]) >= 2
+    assert "secondary" in payload["reconciliation_note"].lower()
+    assert payload["secondary_issue"] == "Chargeback / Dispute"
 
 
 def test_resolve_includes_flagged_groundedness_when_verifier_fails() -> None:
