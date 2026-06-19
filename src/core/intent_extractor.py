@@ -33,6 +33,9 @@ Disambiguation guidance:
   or contacted their bank to challenge it — even if a refund was also mentioned.
 - "Failed Payment": payment explicitly failed or was declined.
 - "Settlement Delay": merchant waiting for settlement payout after a successful transaction.
+- "Normal Success": customer confirms everything is fine and has NO unresolved issue.
+  Do NOT tag when "successful" only describes the underlying transaction while the customer
+  is complaining about a different problem (e.g. settlement still pending).
 - For vague complaints with no specific payment symptom (e.g. "something went wrong"),
   return [] unless a taxonomy label clearly applies — if unsure, use "low" confidence, never "high".
 

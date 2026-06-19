@@ -202,6 +202,23 @@ def _render_groundedness_badge(result: dict) -> None:
         st.markdown(f"- {claim}")
 
 
+def _render_retrieval_breakdown(result: dict) -> None:
+    """Show hybrid retrieval component scores in a collapsed transparency expander."""
+    retrieval_scores = result.get("retrieval_scores") or {}
+    semantic = float(retrieval_scores.get("semantic", 0.0))
+    intent = float(retrieval_scores.get("intent", 0.0))
+    structural = float(retrieval_scores.get("structural", 0.0))
+
+    with st.expander("Retrieval breakdown", expanded=False):
+        st.caption("How semantic, intent, and structural signals ranked the retrieved SOP.")
+        st.markdown(f"**Semantic** — {semantic:.3f}")
+        st.progress(min(max(semantic, 0.0), 1.0))
+        st.markdown(f"**Intent** — {intent:.3f}")
+        st.progress(min(max(intent, 0.0), 1.0))
+        st.markdown(f"**Structural** — {structural:.3f}")
+        st.progress(min(max(structural, 0.0), 1.0))
+
+
 def main() -> None:
     """Render the dispute resolution form and results."""
     st.set_page_config(page_title="Paytm Resolution Copilot", page_icon="💳", layout="centered")
@@ -265,6 +282,7 @@ def main() -> None:
     _render_groundedness_badge(result)
     st.markdown(result["response"])
     st.caption(f"SOP source: {result.get('sop_source', 'unknown')}")
+    _render_retrieval_breakdown(result)
     st.subheader("Copy case note")
     st.text_area(
         "Case note",

@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from src.core.intent_extractor import extract_intents
+from src.issue_taxonomy import IssueType
+
+# Incidental transaction-status mentions, not real secondary complaints.
+SUPPRESSED_SECONDARY_INTENTS: frozenset[str] = frozenset({IssueType.NORMAL_SUCCESS.value})
 
 
 def _intent_name(intent: dict[str, Any]) -> Optional[str]:
@@ -108,7 +112,11 @@ def reconcile_signals(
     intent_names = [name for name in extracted_names if name]
 
     if rule_based_issue in intent_names:
-        unresolved_intents = [name for name in intent_names if name != rule_based_issue]
+        unresolved_intents = [
+            name
+            for name in intent_names
+            if name != rule_based_issue and name not in SUPPRESSED_SECONDARY_INTENTS
+        ]
         return {
             "primary_issue": rule_based_issue,
             "extracted_intents": extracted_intents,

@@ -13,7 +13,7 @@ from src.core.groundedness_verifier import verify_groundedness
 from src.core.escalation_rules import determine_escalation
 from src.core.issue_rules import identify_issue
 from src.core.llm_generator import generate_case_note, generate_response, is_llm_configured, is_llm_ready
-from src.core.rag_retriever import retrieve_sop
+from src.core.rag_retriever import retrieve_sop_hybrid
 from src.core.signal_reconciliation import reconcile_signals
 from src.core.sop_metadata import load_sop_metadata
 from src.core.sop_response_builder import build_sop_fallback_response
@@ -38,6 +38,15 @@ class ResolveRequest(BaseModel):
     complaint: str = ""
 
 
+class RetrievalScores(BaseModel):
+    """Hybrid retrieval component scores for the SOP actually used."""
+
+    semantic: float
+    intent: float
+    structural: float
+    final: float
+
+
 class ResolveResponse(BaseModel):
     """Structured resolution payload returned to the agent UI."""
 
@@ -50,6 +59,7 @@ class ResolveResponse(BaseModel):
     conflict: bool = False
     reconciliation_note: str = ""
     sop_source: str
+    retrieval_scores: RetrievalScores
     escalation_required: Optional[bool] = None
     escalation_note: Optional[str] = None
     response: str
@@ -115,16 +125,34 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
     )
 
     primary_issue = signals["primary_issue"]
-    # Rule-engine primary_issue is ground truth for SOP retrieval and LLM grounding.
-    sop_results = retrieve_sop(primary_issue, top_k=1)
+    retrieval_query = request.complaint.strip() or primary_issue
+    sop_results = retrieve_sop_hybrid(
+        retrieval_query,
+        extracted_intents=signals["extracted_intents"],
+        transaction=transaction,
+        top_k=1,
+    )
     if not sop_results:
         raise HTTPException(
             status_code=500,
-            detail=f"No SOP found for identified issue: {primary_issue}.",
+            detail=f"No SOP found for query: {retrieval_query!r}.",
         )
 
     sop = sop_results[0]
     sop_source = Path(sop["file_path"]).name
+    retrieval_scores = RetrievalScores(
+        semantic=float(sop.get("semantic_score", 0.0)),
+        intent=float(sop.get("intent_score", 0.0)),
+        structural=float(sop.get("structural_score", 0.0)),
+        final=float(sop.get("final_score", 0.0)),
+    )
+    logger.info(
+        "hybrid retrieval: mid=%s order_id=%s sop=%s scores=%s",
+        request.mid,
+        request.order_id,
+        sop_source,
+        retrieval_scores.model_dump(),
+    )
     sop_metadata = load_sop_metadata(sop["file_path"])
     escalation = determine_escalation(transaction, sop_metadata)
 
@@ -147,6 +175,11 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
         "transaction": transaction,
         "sop_content": sop["content"],
         "escalation": escalation,
+        "retrieval_scores": retrieval_scores.model_dump(),
+        "semantic_score": retrieval_scores.semantic,
+        "intent_score": retrieval_scores.intent,
+        "structural_score": retrieval_scores.structural,
+        "final_score": retrieval_scores.final,
     }
     groundedness = verify_groundedness(response_text, grounding_facts)
 
@@ -187,6 +220,7 @@ def resolve(request: ResolveRequest) -> ResolveResponse:
         conflict=signals["conflict"],
         reconciliation_note=signals["reconciliation_note"],
         sop_source=sop_source,
+        retrieval_scores=retrieval_scores,
         escalation_required=escalation["escalation_required"],
         escalation_note=escalation_note,
         response=response_text,

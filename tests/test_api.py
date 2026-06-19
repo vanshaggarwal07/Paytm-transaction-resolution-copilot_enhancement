@@ -48,6 +48,11 @@ def test_resolve_valid_transaction_returns_200_with_keys() -> None:
     assert "case_note" in payload
     assert "groundedness_verified" in payload
     assert "unsupported_claims" in payload
+    assert "retrieval_scores" in payload
+    retrieval_scores = payload["retrieval_scores"]
+    assert set(retrieval_scores.keys()) == {"semantic", "intent", "structural", "final"}
+    for key in ("semantic", "intent", "structural", "final"):
+        assert isinstance(retrieval_scores[key], (int, float))
     assert payload["issue"] == expected_issue
     assert payload["primary_issue"] == expected_issue
     assert isinstance(payload["response"], str)
@@ -112,7 +117,10 @@ def test_resolve_conflict_case_returns_reconciliation_fields() -> None:
     assert isinstance(payload["extracted_intents"], list)
     assert len(payload["extracted_intents"]) >= 1
     assert "conflict" in payload["reconciliation_note"].lower()
-    assert payload["sop_source"] == "settlement_delay.md"
+    assert payload["sop_source"] == "chargeback_dispute.md"
+    retrieval_scores = payload["retrieval_scores"]
+    assert set(retrieval_scores.keys()) == {"semantic", "intent", "structural", "final"}
+    assert retrieval_scores["intent"] > 0
 
 
 def test_resolve_multi_intent_case_returns_secondary_signals() -> None:

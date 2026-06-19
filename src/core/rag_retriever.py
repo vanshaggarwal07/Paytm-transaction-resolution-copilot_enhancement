@@ -10,12 +10,14 @@ import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from src.core.sop_metadata import parse_issue_name, split_sop_markdown
+from src.core.hybrid_scorer import compute_hybrid_scores
+from src.core.sop_metadata import load_sop_metadata, parse_issue_name, split_sop_markdown
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_SOPS_DIR = Path("data/sops")
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+HYBRID_CANDIDATE_POOL_SIZE = 10
 
 # Cached embedding index and SOP documents — built once at module load.
 _SOP_DOCUMENTS: list[dict[str, str]] = []
@@ -87,8 +89,8 @@ def _initialize_retriever(sops_dir: Path = DEFAULT_SOPS_DIR) -> None:
     _EMBEDDING_INDEX = index
 
 
-def retrieve_sop(query: str, top_k: int = 1) -> list[dict[str, Any]]:
-    """Return the top matching SOP documents for a natural-language query."""
+def _search_sop_index(query: str, top_k: int) -> tuple[list[int], list[float]]:
+    """Run FAISS search and return document indices with cosine similarity scores."""
     if not query.strip():
         raise ValueError("Query must not be empty")
 
@@ -105,22 +107,64 @@ def retrieve_sop(query: str, top_k: int = 1) -> list[dict[str, Any]]:
         query_matrix = np.asarray(query_embedding, dtype=np.float32)
         scores, indices = _EMBEDDING_INDEX.search(query_matrix, top_k)
 
-        results: list[dict[str, Any]] = []
+        doc_indices: list[int] = []
+        doc_scores: list[float] = []
         for rank, doc_index in enumerate(indices[0]):
             if doc_index < 0:
                 continue
-            document = _SOP_DOCUMENTS[doc_index]
-            results.append(
-                {
-                    "issue_name": document["issue_name"],
-                    "file_path": document["file_path"],
-                    "content": document["content"],
-                }
-            )
-        return results
+            doc_indices.append(int(doc_index))
+            doc_scores.append(float(scores[0][rank]))
+        return doc_indices, doc_scores
     except Exception as exc:
         logger.error("SOP retrieval failed for query %r: %s", query, exc)
         raise RuntimeError(f"SOP retrieval failed: {exc}") from exc
+
+
+def retrieve_sop(query: str, top_k: int = 1) -> list[dict[str, Any]]:
+    """Return the top matching SOP documents for a natural-language query."""
+    doc_indices, _scores = _search_sop_index(query, top_k)
+
+    results: list[dict[str, Any]] = []
+    for doc_index in doc_indices:
+        document = _SOP_DOCUMENTS[doc_index]
+        results.append(
+            {
+                "issue_name": document["issue_name"],
+                "file_path": document["file_path"],
+                "content": document["content"],
+            }
+        )
+    return results
+
+
+def retrieve_sop_hybrid(
+    query: str,
+    extracted_intents: list[dict[str, Any]],
+    transaction: dict[str, Any],
+    top_k: int = 1,
+) -> list[dict[str, Any]]:
+    """Return top SOPs after FAISS candidate retrieval and hybrid re-ranking."""
+    doc_indices, semantic_scores = _search_sop_index(query, HYBRID_CANDIDATE_POOL_SIZE)
+
+    candidates: list[dict[str, Any]] = []
+    for doc_index in doc_indices:
+        document = _SOP_DOCUMENTS[doc_index]
+        candidates.append(
+            {
+                "issue_name": document["issue_name"],
+                "file_path": document["file_path"],
+                "content": document["content"],
+                "sop_metadata": load_sop_metadata(document["file_path"]),
+            }
+        )
+
+    ranked = compute_hybrid_scores(
+        candidates=candidates,
+        semantic_scores=semantic_scores,
+        extracted_intents=extracted_intents,
+        transaction=transaction,
+    )
+    return ranked[:top_k]
 
 
 _initialize_retriever()
