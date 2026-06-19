@@ -8,3 +8,5 @@ uvicorn
 streamlit
 pytest
 python-dotenv
+langgraph
+langchain-core

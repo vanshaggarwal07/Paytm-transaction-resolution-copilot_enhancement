@@ -12,7 +12,45 @@ logger = logging.getLogger(__name__)
 
 API_HEALTH_URL = "http://localhost:8000/health"
 API_RESOLVE_URL = "http://localhost:8000/resolve"
-REQUEST_TIMEOUT_SECONDS = 60
+REQUEST_TIMEOUT_SECONDS = 120
+
+UI_PHASE_INITIAL = "initial"
+UI_PHASE_CLARIFICATION = "clarification"
+
+
+def _init_session_state() -> None:
+    """Ensure session keys exist for the two-phase resolve flow."""
+    defaults = {
+        "ui_phase": UI_PHASE_INITIAL,
+        "mid": "",
+        "order_id": "",
+        "cust_id": "",
+        "complaint": "",
+        "agent_answers": "",
+        "clarifying_questions": [],
+        "result": None,
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+def _reset_to_initial() -> None:
+    """Clear clarification state and return to the initial form."""
+    st.session_state.ui_phase = UI_PHASE_INITIAL
+    st.session_state.agent_answers = ""
+    st.session_state.clarifying_questions = []
+    st.session_state.result = None
+
+
+def _format_agent_answers(questions: list[str], answers: list[str]) -> str:
+    """Build Q/A context string for the second /resolve call."""
+    blocks: list[str] = []
+    for index, (question, answer) in enumerate(zip(questions, answers), start=1):
+        cleaned_answer = answer.strip()
+        if cleaned_answer:
+            blocks.append(f"Q{index}: {question}\nA: {cleaned_answer}")
+    return "\n\n".join(blocks)
 
 
 def _call_resolve_api(
@@ -20,13 +58,15 @@ def _call_resolve_api(
     order_id: str,
     cust_id: str,
     complaint: str,
-) -> tuple[dict | None, str | None]:
-    """POST to the resolution API and return payload or a user-facing error."""
+    agent_answers: str = "",
+) -> tuple[dict | None, str | None, int | None]:
+    """POST to the resolution API and return payload, error message, and status code."""
     payload = {
         "mid": mid.strip(),
         "order_id": order_id.strip(),
         "cust_id": cust_id.strip(),
         "complaint": complaint.strip(),
+        "agent_answers": agent_answers.strip(),
     }
 
     try:
@@ -40,19 +80,19 @@ def _call_resolve_api(
         return None, (
             "Could not reach the resolution API at localhost:8000. "
             "Make sure the FastAPI server is running."
-        )
+        ), None
     except requests.Timeout:
         logger.error("API request timed out for ORDER_ID=%s", order_id)
-        return None, "The resolution API timed out. Please try again."
+        return None, "The resolution API timed out. Please try again.", None
     except requests.RequestException as exc:
         logger.error("API request failed: %s", exc)
-        return None, "Something went wrong while contacting the API. Please try again."
+        return None, "Something went wrong while contacting the API. Please try again.", None
 
     if response.status_code == 404:
         return None, (
             "Transaction not found. Please check the MID, Order ID, and "
             "Customer ID and try again."
-        )
+        ), 404
 
     if response.status_code != 200:
         logger.error("API returned status %s: %s", response.status_code, response.text)
@@ -60,13 +100,13 @@ def _call_resolve_api(
             detail = response.json().get("detail")
         except ValueError:
             detail = response.text
-        return None, detail or "The resolution API returned an unexpected error."
+        return None, detail or "The resolution API returned an unexpected error.", response.status_code
 
     try:
-        return response.json(), None
+        return response.json(), None, response.status_code
     except ValueError as exc:
         logger.error("Invalid JSON from API: %s", exc)
-        return None, "Received an invalid response from the API."
+        return None, "Received an invalid response from the API.", response.status_code
 
 
 def _confidence_for_intent(
@@ -219,57 +259,8 @@ def _render_retrieval_breakdown(result: dict) -> None:
         st.progress(min(max(structural, 0.0), 1.0))
 
 
-def main() -> None:
-    """Render the dispute resolution form and results."""
-    st.set_page_config(page_title="Paytm Resolution Copilot", page_icon="💳", layout="centered")
-    st.title("Paytm Transaction Resolution Copilot")
-    st.caption("Look up a transaction and get grounded agent guidance.")
-
-    try:
-        health = requests.get(API_HEALTH_URL, timeout=30).json()
-        if not health.get("llm_configured"):
-            st.warning(
-                "No Gemini API key found in `.env`. Add `GEMINI_API_KEY=` (no quotes) from "
-                "[Google AI Studio](https://aistudio.google.com/apikey), then restart the servers."
-            )
-        elif not health.get("llm_ready"):
-            st.warning(
-                "Gemini API key is present but rejected (expired or invalid). "
-                "Create a **new** key at [Google AI Studio](https://aistudio.google.com/apikey), "
-                "update `.env` as `GEMINI_API_KEY=your_key` with no quotes, and restart `./run_demo.sh`."
-            )
-    except requests.RequestException:
-        st.warning("API health check failed — start FastAPI on port 8000 before resolving.")
-
-    with st.form("resolve_form"):
-        mid = st.text_input("MID", placeholder="e.g. MID000002")
-        order_id = st.text_input("Order ID", placeholder="e.g. ORD000002")
-        cust_id = st.text_input("Customer ID", placeholder="e.g. CUST000002")
-        complaint = st.text_area(
-            "Customer complaint (optional)",
-            placeholder="Paste the customer's message here…",
-            height=120,
-        )
-        st.caption("Hindi, English or Hinglish — all supported.")
-        submitted = st.form_submit_button("Resolve")
-
-    if not submitted:
-        return
-
-    if not mid.strip() or not order_id.strip() or not cust_id.strip():
-        st.warning("MID, Order ID, and Customer ID are required.")
-        return
-
-    complaint_provided = bool(complaint.strip())
-
-    with st.spinner("Resolving transaction…"):
-        result, error_message = _call_resolve_api(mid, order_id, cust_id, complaint)
-
-    if error_message:
-        st.error(error_message)
-        return
-
-    assert result is not None
+def _render_resolution_result(result: dict, complaint_provided: bool) -> None:
+    """Render the full resolution panel from a completed /resolve response."""
     primary_issue = result.get("primary_issue") or result.get("issue", "Unknown")
     st.markdown(f"## **{primary_issue}**")
     _render_escalation_badge(result.get("escalation_required"), result.get("escalation_note"))
@@ -290,6 +281,212 @@ def main() -> None:
         height=140,
         label_visibility="collapsed",
     )
+
+
+def _handle_resolve_response(
+    payload: dict,
+    *,
+    mid: str,
+    order_id: str,
+    cust_id: str,
+    complaint: str,
+) -> None:
+    """Route API response into clarification or resolution UI state."""
+    st.session_state.mid = mid
+    st.session_state.order_id = order_id
+    st.session_state.cust_id = cust_id
+    st.session_state.complaint = complaint
+
+    if payload.get("status") == "clarification_needed":
+        st.session_state.ui_phase = UI_PHASE_CLARIFICATION
+        st.session_state.clarifying_questions = payload.get("clarifying_questions") or []
+        st.session_state.result = None
+        return
+
+    st.session_state.ui_phase = UI_PHASE_INITIAL
+    st.session_state.clarifying_questions = []
+    st.session_state.result = payload
+
+
+def _render_initial_form() -> None:
+    """State 1: initial transaction lookup and optional complaint."""
+    with st.form("resolve_form"):
+        mid = st.text_input("MID", value=st.session_state.mid, placeholder="e.g. MID000002")
+        order_id = st.text_input(
+            "Order ID",
+            value=st.session_state.order_id,
+            placeholder="e.g. ORD000002",
+        )
+        cust_id = st.text_input(
+            "Customer ID",
+            value=st.session_state.cust_id,
+            placeholder="e.g. CUST000002",
+        )
+        complaint = st.text_area(
+            "Customer complaint (optional)",
+            value=st.session_state.complaint,
+            placeholder="Paste the customer's message here…",
+            height=120,
+        )
+        st.caption("Hindi, English or Hinglish — all supported.")
+        submitted = st.form_submit_button("Resolve")
+
+    if not submitted:
+        if st.session_state.result is not None:
+            complaint_provided = bool(st.session_state.complaint.strip())
+            _render_resolution_result(st.session_state.result, complaint_provided)
+        return
+
+    if not mid.strip() or not order_id.strip() or not cust_id.strip():
+        st.warning("MID, Order ID, and Customer ID are required.")
+        return
+
+    with st.spinner("Resolving transaction…"):
+        payload, error_message, status_code = _call_resolve_api(mid, order_id, cust_id, complaint)
+
+    if error_message:
+        st.error(error_message)
+        if status_code == 404:
+            _reset_to_initial()
+            st.session_state.mid = ""
+            st.session_state.order_id = ""
+            st.session_state.cust_id = ""
+            st.session_state.complaint = ""
+        return
+
+    assert payload is not None
+    _handle_resolve_response(
+        payload,
+        mid=mid,
+        order_id=order_id,
+        cust_id=cust_id,
+        complaint=complaint,
+    )
+    st.rerun()
+
+
+def _render_clarification_form() -> None:
+    """State 2: collect agent answers to clarifying questions."""
+    st.markdown("### The assistant needs more information")
+    st.caption(
+        f"Transaction: **{st.session_state.mid}** / "
+        f"**{st.session_state.order_id}** / **{st.session_state.cust_id}**"
+    )
+
+    questions = st.session_state.clarifying_questions or []
+    if not questions:
+        st.warning("No clarifying questions were returned. Start over and try again.")
+        if st.button("Start over", type="secondary"):
+            _reset_to_initial()
+            st.session_state.mid = ""
+            st.session_state.order_id = ""
+            st.session_state.cust_id = ""
+            st.session_state.complaint = ""
+            st.rerun()
+        return
+
+    with st.form("clarification_form"):
+        answers: list[str] = []
+        for index, question in enumerate(questions, start=1):
+            st.markdown(f"**{index}. {question}**")
+            answers.append(
+                st.text_input(
+                    f"Answer {index}",
+                    key=f"clarify_answer_{index}",
+                    label_visibility="collapsed",
+                    placeholder="Type a short factual answer…",
+                )
+            )
+
+        col_submit, col_reset = st.columns([1, 1])
+        with col_submit:
+            submit_answers = st.form_submit_button("Submit answers", type="primary")
+        with col_reset:
+            start_over = st.form_submit_button("Start over")
+
+    if start_over:
+        _reset_to_initial()
+        st.session_state.mid = ""
+        st.session_state.order_id = ""
+        st.session_state.cust_id = ""
+        st.session_state.complaint = ""
+        st.rerun()
+
+    if not submit_answers:
+        return
+
+    if not any(answer.strip() for answer in answers):
+        st.warning("Please answer at least one question before submitting.")
+        return
+
+    agent_answers = _format_agent_answers(questions, answers)
+    st.session_state.agent_answers = agent_answers
+
+    with st.spinner("Resolving with your answers…"):
+        payload, error_message, status_code = _call_resolve_api(
+            st.session_state.mid,
+            st.session_state.order_id,
+            st.session_state.cust_id,
+            st.session_state.complaint,
+            agent_answers=agent_answers,
+        )
+
+    if error_message:
+        st.error(error_message)
+        if status_code == 404:
+            _reset_to_initial()
+            st.session_state.mid = ""
+            st.session_state.order_id = ""
+            st.session_state.cust_id = ""
+            st.session_state.complaint = ""
+            st.rerun()
+        return
+
+    assert payload is not None
+    if payload.get("status") == "clarification_needed":
+        st.session_state.clarifying_questions = payload.get("clarifying_questions") or []
+        st.warning("More clarification is still needed. Review the updated questions below.")
+        st.rerun()
+
+    _handle_resolve_response(
+        payload,
+        mid=st.session_state.mid,
+        order_id=st.session_state.order_id,
+        cust_id=st.session_state.cust_id,
+        complaint=st.session_state.complaint,
+    )
+    st.rerun()
+
+
+def main() -> None:
+    """Render the dispute resolution form and results."""
+    st.set_page_config(page_title="Paytm Resolution Copilot", page_icon="💳", layout="centered")
+    st.title("Paytm Transaction Resolution Copilot")
+    st.caption("Look up a transaction and get grounded agent guidance.")
+
+    _init_session_state()
+
+    try:
+        health = requests.get(API_HEALTH_URL, timeout=30).json()
+        if not health.get("llm_configured"):
+            st.warning(
+                "No Gemini API key found in `.env`. Add `GEMINI_API_KEY=` (no quotes) from "
+                "[Google AI Studio](https://aistudio.google.com/apikey), then restart the servers."
+            )
+        elif not health.get("llm_ready"):
+            st.warning(
+                "Gemini API key is present but rejected (expired or invalid). "
+                "Create a **new** key at [Google AI Studio](https://aistudio.google.com/apikey), "
+                "update `.env` as `GEMINI_API_KEY=your_key` with no quotes, and restart `./run_demo.sh`."
+            )
+    except requests.RequestException:
+        st.warning("API health check failed — start FastAPI on port 8000 before resolving.")
+
+    if st.session_state.ui_phase == UI_PHASE_CLARIFICATION:
+        _render_clarification_form()
+        return
+
+    _render_initial_form()
 
 
 if __name__ == "__main__":
