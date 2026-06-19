@@ -172,6 +172,43 @@ def test_resolve_conflict_case_returns_reconciliation_fields() -> None:
     assert set(retrieval_scores.keys()) == {"semantic", "intent", "structural", "final"}
 
 
+SETTLEMENT_MULTI_INTENT = [
+    {
+        "intent": "Settlement Delay",
+        "confidence": "high",
+        "evidence": "settlement still pending on my dashboard",
+    },
+    {
+        "intent": "Chargeback / Dispute",
+        "confidence": "high",
+        "evidence": "don't recognise this transaction at all",
+    },
+]
+
+STUB_SETTLEMENT_RESOLVE_RESPONSE = (
+    "Explanation:\n"
+    "Settlement for this Wallet payment is still pending on the merchant dashboard.\n\n"
+    "Next Action:\n"
+    "Verify settlement batch inclusion and merchant bank configuration.\n\n"
+    "Escalation:\n"
+    "Yes — L2 Settlement Ops.\n\n"
+    "Source:\n"
+    "settlement_delay.md\n",
+    "gemini",
+)
+
+STUB_SETTLEMENT_CASE_NOTE = (
+    "MID000002 / ORD000002: Settlement Delay — funds not yet reached bank; "
+    "secondary Chargeback / Dispute signal flagged for review."
+)
+
+STUB_GROUNDEDNESS_OK = {
+    "verified": True,
+    "unsupported_claims": [],
+    "raw_verifier_output": "",
+}
+
+
 def test_resolve_multi_intent_case_returns_secondary_signals() -> None:
     """Settlement Delay transaction with chargeback language surfaces unresolved secondary intents."""
     transaction = lookup_transaction("MID000002", "ORD000002", "CUST000002")
@@ -183,15 +220,28 @@ def test_resolve_multi_intent_case_returns_secondary_signals() -> None:
         "but I also contacted my bank because I don't recognise this transaction at all."
     )
 
-    response = client.post(
-        "/resolve",
-        json={
-            "mid": "MID000002",
-            "order_id": "ORD000002",
-            "cust_id": "CUST000002",
-            "complaint": complaint,
-        },
-    )
+    with patch(
+        "src.core.signal_reconciliation.extract_intents",
+        return_value=SETTLEMENT_MULTI_INTENT,
+    ), patch(
+        "src.core.graph_nodes.generate_response",
+        return_value=STUB_SETTLEMENT_RESOLVE_RESPONSE,
+    ), patch(
+        "src.core.graph_nodes.generate_case_note",
+        return_value=STUB_SETTLEMENT_CASE_NOTE,
+    ), patch(
+        "src.core.graph_nodes.verify_groundedness",
+        return_value=STUB_GROUNDEDNESS_OK,
+    ):
+        response = client.post(
+            "/resolve",
+            json={
+                "mid": "MID000002",
+                "order_id": "ORD000002",
+                "cust_id": "CUST000002",
+                "complaint": complaint,
+            },
+        )
 
     assert response.status_code == 200
     payload = response.json()
@@ -215,6 +265,32 @@ def test_resolve_multi_intent_case_returns_secondary_signals() -> None:
     assert payload["secondary_issue"] == "Chargeback / Dispute"
 
 
+AMOUNT_DEBITED_INTENTS = [
+    {
+        "intent": "Amount Debited but Merchant Not Credited",
+        "confidence": "high",
+        "evidence": "merchant never received payment",
+    }
+]
+
+STUB_RESOLVE_RESPONSE = (
+    "Explanation:\n"
+    "Amount was debited from the customer but the merchant was not credited.\n\n"
+    "Next Action:\n"
+    "Verify bank transfer status and merchant settlement configuration.\n\n"
+    "Escalation:\n"
+    "No escalation required.\n\n"
+    "Source:\n"
+    "amount_debited_merchant_not_credited.md\n",
+    "gemini",
+)
+
+STUB_CASE_NOTE = (
+    "MID000010 / ORD000010: Amount Debited but Merchant Not Credited — "
+    "customer reports merchant never received payment."
+)
+
+
 def test_resolve_includes_flagged_groundedness_when_verifier_fails() -> None:
     """Flagged groundedness is attached without blocking the resolution response."""
     stubbed_result = {
@@ -223,7 +299,19 @@ def test_resolve_includes_flagged_groundedness_when_verifier_fails() -> None:
         "raw_verifier_output": "- Invented refund amount ₹99999.99",
     }
 
-    with patch("src.core.graph_nodes.verify_groundedness", return_value=stubbed_result):
+    with patch(
+        "src.core.signal_reconciliation.extract_intents",
+        return_value=AMOUNT_DEBITED_INTENTS,
+    ), patch(
+        "src.core.graph_nodes.generate_response",
+        return_value=STUB_RESOLVE_RESPONSE,
+    ), patch(
+        "src.core.graph_nodes.generate_case_note",
+        return_value=STUB_CASE_NOTE,
+    ), patch(
+        "src.core.graph_nodes.verify_groundedness",
+        return_value=stubbed_result,
+    ):
         response = client.post(
             "/resolve",
             json={
@@ -237,6 +325,7 @@ def test_resolve_includes_flagged_groundedness_when_verifier_fails() -> None:
     assert response.status_code == 200
     payload = response.json()
 
+    assert payload.get("status") != "clarification_needed"
     assert payload["groundedness_verified"] is False
     assert payload["unsupported_claims"] == ["Invented refund amount ₹99999.99"]
     assert isinstance(payload["response"], str)
