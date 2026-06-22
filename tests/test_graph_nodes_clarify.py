@@ -38,6 +38,7 @@ def _conflict_state_from_prompt_24_case_3() -> CopilotState:
         "sop": None,
         "response_text": None,
         "response_mode": None,
+        "customer_reply": None,
         "escalation": None,
         "groundedness": None,
         "case_note": None,

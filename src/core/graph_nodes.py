@@ -15,6 +15,7 @@ from src.core.llm_generator import (
     _get_client,
     generate_case_note,
     generate_content_with_model_fallback,
+    generate_customer_reply,
     generate_response,
 )
 from src.core.rag_retriever import retrieve_sop_hybrid
@@ -318,10 +319,14 @@ def node_retrieve(state: CopilotState) -> dict:
 
 
 def node_generate(state: CopilotState) -> dict:
-    """Fill response_text."""
+    """Fill response_text and customer_reply."""
     sop = state["sop"]
     sop_metadata = load_sop_metadata(sop["file_path"])
     escalation = determine_escalation(state["transaction"], sop_metadata)
+    escalation_for_reply = {
+        **escalation,
+        "expected_resolution_hours": sop_metadata.get("expected_resolution_hours"),
+    }
     response_text, response_mode = generate_response(
         transaction=state["transaction"],
         issue=state["rule_based_issue"],
@@ -329,7 +334,17 @@ def node_generate(state: CopilotState) -> dict:
         escalation=escalation,
         complaint=_enriched_complaint_text(state),
     )
-    return {"response_text": response_text, "response_mode": response_mode}
+    customer_reply = generate_customer_reply(
+        transaction=state["transaction"],
+        issue=state["rule_based_issue"],
+        resolution_summary=response_text,
+        escalation=escalation_for_reply,
+    )
+    return {
+        "response_text": response_text,
+        "response_mode": response_mode,
+        "customer_reply": customer_reply,
+    }
 
 
 def node_escalate(state: CopilotState) -> dict:

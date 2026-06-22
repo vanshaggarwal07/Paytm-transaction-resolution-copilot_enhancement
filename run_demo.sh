@@ -12,6 +12,10 @@ fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
 export PYTHONPATH=.
+# Avoid corporate proxy blocking Hugging Face model cache / Gemini API calls.
+export NO_PROXY='*'
+export no_proxy='*'
+unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy 2>/dev/null || true
 
 API_PID=""
 

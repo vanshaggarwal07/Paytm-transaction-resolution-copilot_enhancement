@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 API_HEALTH_URL = "http://localhost:8000/health"
 API_RESOLVE_URL = "http://localhost:8000/resolve"
+API_FEEDBACK_URL = "http://localhost:8000/feedback"
 API_EXTRACT_IMAGE_URL = "http://localhost:8000/extract-image"
 REQUEST_TIMEOUT_SECONDS = 120
 
@@ -50,6 +51,11 @@ def _init_session_state() -> None:
             field: "" for field, _ in SCREENSHOT_FIELDS
         },
         "screenshot_complaint": "",
+        "customer_reply_draft": "",
+        "feedback_rating": None,
+        "feedback_comment": "",
+        "feedback_submitted": False,
+        "feedback_submitted_for_resolution_id": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -72,6 +78,44 @@ def _format_agent_answers(questions: list[str], answers: list[str]) -> str:
         if cleaned_answer:
             blocks.append(f"Q{index}: {question}\nA: {cleaned_answer}")
     return "\n\n".join(blocks)
+
+
+def _call_feedback_api(
+    resolution_id: str,
+    rating: str,
+    comment: str = "",
+) -> tuple[dict | None, str | None]:
+    """POST agent feedback for a completed resolution."""
+    payload = {
+        "resolution_id": resolution_id,
+        "rating": rating,
+        "comment": comment.strip(),
+    }
+
+    try:
+        response = requests.post(
+            API_FEEDBACK_URL,
+            json=payload,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as exc:
+        logger.error("Feedback request failed: %s", exc)
+        return None, "Could not submit feedback. Please try again."
+
+    if response.status_code == 404:
+        return None, "Resolution ID not found — feedback could not be recorded."
+
+    if response.status_code != 200:
+        try:
+            detail = response.json().get("detail")
+        except ValueError:
+            detail = response.text
+        return None, detail or "Feedback submission failed."
+
+    try:
+        return response.json(), None
+    except ValueError:
+        return None, "Received an invalid response from the feedback API."
 
 
 def _call_resolve_api(
@@ -319,6 +363,122 @@ def _render_retrieval_breakdown(result: dict) -> None:
         st.progress(min(max(structural, 0.0), 1.0))
 
 
+def _outcome_badge_html(outcome: str) -> str:
+    """Return a coloured pill badge for a resolved-case outcome."""
+    if outcome.startswith("Resolved -"):
+        return (
+            f'<span style="background-color:#28a745;color:white;padding:3px 10px;'
+            f'border-radius:999px;font-size:0.85rem;font-weight:600;">{outcome}</span>'
+        )
+    if outcome.startswith("Escalated -"):
+        return (
+            f'<span style="background-color:#ffc107;color:#212529;padding:3px 10px;'
+            f'border-radius:999px;font-size:0.85rem;font-weight:600;">{outcome}</span>'
+        )
+    return (
+        f'<span style="background-color:#6c757d;color:white;padding:3px 10px;'
+        f'border-radius:999px;font-size:0.85rem;font-weight:600;">{outcome}</span>'
+    )
+
+
+def _render_customer_reply_draft(response: dict) -> None:
+    """Show an editable customer-facing reply draft with copy support."""
+    st.subheader("Customer-Facing Reply")
+    st.caption("Ready to send — review before copying.")
+
+    col_reply, col_copy = st.columns([4, 1])
+    with col_reply:
+        draft = st.text_area(
+            "Customer reply draft",
+            height=150,
+            label_visibility="collapsed",
+            key="customer_reply_draft",
+        )
+    with col_copy:
+        st.markdown("**Copy**")
+        st.code(draft or "", language=None)
+
+
+def _render_similar_cases(response: dict) -> None:
+    """Show historically similar resolved cases when the API returns matches."""
+    similar_cases = response.get("similar_cases") or []
+    if not similar_cases:
+        return
+
+    st.subheader("Similar Resolved Cases")
+    for case in similar_cases:
+        issue = case.get("ISSUE", "Unknown issue")
+        outcome = case.get("OUTCOME", "Unknown outcome")
+        score = float(case.get("similarity_score", 0.0))
+        match_pct = round(score * 100)
+        expander_title = f"{issue} — {outcome}"
+
+        with st.expander(expander_title, expanded=False):
+            st.caption(case.get("CASE_ID", ""))
+            st.markdown(f"**{issue}**")
+            st.markdown(_outcome_badge_html(outcome), unsafe_allow_html=True)
+            st.caption(f"Match: {match_pct}%")
+            st.markdown(case.get("RESOLUTION_SUMMARY", ""))
+
+
+def _render_feedback_section(response: dict) -> None:
+    """Collect agent feedback on the displayed resolution."""
+    st.subheader("Was this resolution helpful?")
+
+    resolution_id = response.get("resolution_id")
+    if not resolution_id:
+        st.caption("Feedback unavailable for this session")
+        return
+
+    if (
+        st.session_state.feedback_submitted
+        and st.session_state.feedback_submitted_for_resolution_id == resolution_id
+    ):
+        st.success("Thank you — your feedback helps improve the copilot.")
+        return
+
+    col_helpful, col_not_helpful = st.columns(2)
+    with col_helpful:
+        if st.button("👍 Helpful", key=f"feedback_helpful_{resolution_id}"):
+            st.session_state.feedback_rating = "helpful"
+    with col_not_helpful:
+        if st.button("👎 Not Helpful", key=f"feedback_not_helpful_{resolution_id}"):
+            st.session_state.feedback_rating = "not_helpful"
+
+    if st.session_state.feedback_rating == "helpful":
+        st.caption("Selected: Helpful")
+    elif st.session_state.feedback_rating == "not_helpful":
+        st.caption("Selected: Not Helpful")
+
+    comment = st.text_input(
+        "Add a comment (optional)",
+        value=st.session_state.feedback_comment,
+        key=f"feedback_comment_{resolution_id}",
+    )
+    st.session_state.feedback_comment = comment
+
+    if st.button("Submit feedback", key=f"feedback_submit_{resolution_id}"):
+        if not st.session_state.feedback_rating:
+            st.warning("Select Helpful or Not Helpful before submitting.")
+            return
+
+        with st.spinner("Recording feedback…"):
+            payload, error_message = _call_feedback_api(
+                resolution_id=resolution_id,
+                rating=st.session_state.feedback_rating,
+                comment=comment,
+            )
+
+        if error_message:
+            st.error(error_message)
+            return
+
+        assert payload is not None
+        st.session_state.feedback_submitted = True
+        st.session_state.feedback_submitted_for_resolution_id = resolution_id
+        st.rerun()
+
+
 def render_resolution(response: dict, complaint_provided: bool) -> None:
     """Render the full resolution panel from a completed /resolve response."""
     primary_issue = response.get("primary_issue") or response.get("issue", "Unknown")
@@ -341,6 +501,9 @@ def render_resolution(response: dict, complaint_provided: bool) -> None:
         height=140,
         label_visibility="collapsed",
     )
+    _render_customer_reply_draft(response)
+    _render_similar_cases(response)
+    _render_feedback_section(response)
 
 
 def _handle_resolve_response(
@@ -366,6 +529,11 @@ def _handle_resolve_response(
     st.session_state.ui_phase = UI_PHASE_INITIAL
     st.session_state.clarifying_questions = []
     st.session_state.result = payload
+    st.session_state.customer_reply_draft = payload.get("customer_reply", "") or ""
+    st.session_state.feedback_rating = None
+    st.session_state.feedback_comment = ""
+    st.session_state.feedback_submitted = False
+    st.session_state.feedback_submitted_for_resolution_id = None
 
 
 def _confidence_tag_html(confidence: str) -> str:

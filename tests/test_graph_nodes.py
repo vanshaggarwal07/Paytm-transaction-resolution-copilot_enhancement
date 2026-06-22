@@ -23,6 +23,7 @@ def _base_state(**overrides: object) -> CopilotState:
         "sop": None,
         "response_text": None,
         "response_mode": None,
+        "customer_reply": None,
         "escalation": None,
         "groundedness": None,
         "case_note": None,

@@ -1,6 +1,7 @@
 """Tests for the FastAPI resolution endpoints."""
 
 import io
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -12,6 +13,7 @@ from src.core.transaction_lookup import lookup_transaction
 from src.api.main import app
 
 client = TestClient(app)
+RESOLVED_CASES_PATH = Path("data/resolved_cases.csv")
 
 CONFLICT_COMPLAINT = (
     "The card issuer raised a chargeback dispute on a previously successful "
@@ -230,6 +232,9 @@ def test_resolve_multi_intent_case_returns_secondary_signals() -> None:
         "src.core.graph_nodes.generate_case_note",
         return_value=STUB_SETTLEMENT_CASE_NOTE,
     ), patch(
+        "src.core.graph_nodes.generate_customer_reply",
+        return_value="We have reviewed your Wallet settlement and will update you shortly.",
+    ), patch(
         "src.core.graph_nodes.verify_groundedness",
         return_value=STUB_GROUNDEDNESS_OK,
     ):
@@ -290,6 +295,13 @@ STUB_CASE_NOTE = (
     "customer reports merchant never received payment."
 )
 
+STUB_CUSTOMER_REPLY = (
+    "Thank you for contacting Paytm. We understand the inconvenience with your "
+    "Card payment of ₹2401.88. We have reviewed your transaction and confirmed "
+    "the amount was debited but not yet credited to the merchant. We are "
+    "monitoring the case and will update you if anything further is needed."
+)
+
 
 def test_resolve_includes_flagged_groundedness_when_verifier_fails() -> None:
     """Flagged groundedness is attached without blocking the resolution response."""
@@ -308,6 +320,9 @@ def test_resolve_includes_flagged_groundedness_when_verifier_fails() -> None:
     ), patch(
         "src.core.graph_nodes.generate_case_note",
         return_value=STUB_CASE_NOTE,
+    ), patch(
+        "src.core.graph_nodes.generate_customer_reply",
+        return_value=STUB_CUSTOMER_REPLY,
     ), patch(
         "src.core.graph_nodes.verify_groundedness",
         return_value=stubbed_result,
@@ -406,3 +421,102 @@ def test_extract_image_sets_warning_when_key_identifier_absent() -> None:
     assert payload["extraction_warning"] is not None
     assert "verify before submitting" in payload["extraction_warning"]
     assert "MID" not in payload["pre_populated"]
+
+
+def _count_resolved_case_rows() -> int:
+    """Return the number of data rows in resolved_cases.csv."""
+    if not RESOLVED_CASES_PATH.is_file():
+        return 0
+    with RESOLVED_CASES_PATH.open(encoding="utf-8") as handle:
+        return max(0, sum(1 for _ in handle) - 1)
+
+
+def _create_resolution_id_via_api() -> str:
+    """Create a deterministic resolution via /resolve and return its ID."""
+    with patch(
+        "src.core.signal_reconciliation.extract_intents",
+        return_value=AMOUNT_DEBITED_INTENTS,
+    ), patch(
+        "src.core.graph_nodes.generate_response",
+        return_value=STUB_RESOLVE_RESPONSE,
+    ), patch(
+        "src.core.graph_nodes.generate_case_note",
+        return_value=STUB_CASE_NOTE,
+    ), patch(
+        "src.core.graph_nodes.generate_customer_reply",
+        return_value=STUB_CUSTOMER_REPLY,
+    ), patch(
+        "src.core.graph_nodes.verify_groundedness",
+        return_value={
+            "verified": True,
+            "unsupported_claims": [],
+            "raw_verifier_output": "",
+        },
+    ):
+        response = client.post(
+            "/resolve",
+            json={
+                "mid": "MID000010",
+                "order_id": "ORD000010",
+                "cust_id": "CUST000010",
+                "complaint": "Money deducted but merchant never received payment",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload.get("status") != "clarification_needed"
+    assert payload["resolution_id"]
+    return payload["resolution_id"]
+
+
+def test_feedback_with_valid_resolution_id_returns_200() -> None:
+    """POST /feedback with a real resolution_id records feedback successfully."""
+    resolution_id = _create_resolution_id_via_api()
+
+    response = client.post(
+        "/feedback",
+        json={
+            "resolution_id": resolution_id,
+            "rating": "not_helpful",
+            "comment": "Response was too generic.",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "recorded"
+    assert payload["feedback_id"]
+
+
+def test_feedback_with_fake_resolution_id_returns_404() -> None:
+    """POST /feedback with an unknown resolution_id returns 404."""
+    response = client.post(
+        "/feedback",
+        json={
+            "resolution_id": "00000000-0000-0000-0000-000000000000",
+            "rating": "helpful",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resolution ID not found"
+
+
+def test_feedback_helpful_appends_resolved_case_row() -> None:
+    """Helpful feedback grows resolved_cases.csv by one searchable case."""
+    resolution_id = _create_resolution_id_via_api()
+    before_count = _count_resolved_case_rows()
+
+    response = client.post(
+        "/feedback",
+        json={
+            "resolution_id": resolution_id,
+            "rating": "helpful",
+            "comment": "Accurate and actionable.",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "recorded"
+    assert _count_resolved_case_rows() == before_count + 1

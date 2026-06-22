@@ -1,0 +1,11 @@
+FEEDBACK_ID,RESOLUTION_ID,TIMESTAMP,RATING,COMMENT
+f5ceca27-a2f2-4cc1-bde4-0e4d09c2dcd6,6e7129ca-125d-4c5f-992b-f55e9f7f379c,2026-06-19T15:31:25,not_helpful,Response was too generic.
+d83b3fb8-90c1-45a5-bd46-365a3e26a806,32df2a88-c25e-4283-8cc1-8764b0309b84,2026-06-19T15:31:25,helpful,Accurate and actionable.
+33df9133-611e-4c28-a133-86f11d2d4db4,cafe5776-2772-4671-a21d-1e299451a882,2026-06-19T15:37:33,not_helpful,Response was too generic.
+1dcb4347-0c38-43af-876c-0400e07a8b67,544a825e-31a5-4d33-8318-c2d67675c4d5,2026-06-19T15:37:33,helpful,Accurate and actionable.
+c01813aa-3f56-4a29-96d4-7e503675674d,7c3e2dd6-6a31-4020-b74b-e8569253e3d3,2026-06-19T15:40:58,not_helpful,Response was too generic.
+79367cbe-069b-478d-9279-6650e9b1c5aa,366c8f9d-ab84-4e97-9ad6-4592cb631f1c,2026-06-19T15:40:58,helpful,Accurate and actionable.
+f6d3cc26-a950-4f4a-b346-e58b01a0859a,8f6c8ac8-6f14-4d2b-b71a-ba01d61b1bf5,2026-06-19T15:47:34,helpful,Clear guidance for the settlement delay case.
+99188a43-263f-48de-bf07-4aae2dcb275b,42b70fd7-c96d-4406-8752-08f86cd62639,2026-06-21T09:24:17,not_helpful,Response was too generic.
+4775a2c6-e7fe-4f2d-a0bc-642f7ae6af29,7f108711-5200-4d91-9464-7fbe30668edb,2026-06-21T09:24:17,helpful,Accurate and actionable.
+194f465e-4391-4144-be3e-a4f4dcd83370,a8347e81-bdb2-48c1-917a-de2793971427,2026-06-21T09:29:51,helpful,

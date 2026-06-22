@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 from pathlib import Path
 from typing import Any, Optional, Tuple
@@ -11,7 +12,11 @@ from typing import Any, Optional, Tuple
 from dotenv import load_dotenv
 from google import genai
 
-from src.core.sop_response_builder import build_case_note_fallback, build_sop_fallback_response
+from src.core.sop_response_builder import (
+    build_case_note_fallback,
+    build_customer_reply_fallback,
+    build_sop_fallback_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +261,51 @@ RESOLUTION SUMMARY (from agent guidance already generated):
 {resolution_summary}
 """
 
+CUSTOMER_REPLY_PROMPT_TEMPLATE = """You are writing a customer-facing message from the Paytm payments support team.
+The audience is the customer — not an internal agent, engineer, or operations team.
+
+TONE AND STYLE:
+- Warm, empathetic, and professional. Acknowledge the inconvenience without being sycophantic.
+- Write in first person plural ("We have reviewed...", "We understand...").
+- Use plain language a customer would understand. No jargon.
+- Write exactly 4-6 sentences. Do not write more than 6 sentences.
+- Output only the customer message text — no headings, bullets, salutation labels, or markdown.
+
+MUST INCLUDE:
+- Reference the specific payment amount and payment mode provided below so the message feels personalised.
+- One sentence explaining what happened in plain language.
+- A clear statement of what happens next and by when, grounded in the RESOLUTION SUMMARY below.
+
+ESCALATION HANDLING:
+- If ESCALATION_REQUIRED is True: tell the customer their case has been escalated for priority review.
+  Say they will hear back within FOLLOWUP_BUSINESS_DAYS business day(s).
+  Do not name internal teams, tiers, or escalation codes.
+- If ESCALATION_REQUIRED is False: close warmly with confirmation that the issue is resolved or being monitored.
+
+NEVER MENTION:
+- SOP names, internal team codes (L2, L3), FAISS, policy documents, or any system internals.
+
+IDENTIFIED ISSUE:
+{issue}
+
+ESCALATION_REQUIRED: {escalation_required}
+FOLLOWUP_BUSINESS_DAYS: {followup_business_days}
+
+TRANSACTION RECORD:
+{transaction_json}
+
+RESOLUTION SUMMARY (translate into plain customer language — do not copy internal headings):
+{resolution_summary}
+"""
+
+
+def _followup_business_days(escalation: dict[str, Any]) -> int:
+    """Convert expected resolution hours to business days for customer messaging."""
+    hours = escalation.get("expected_resolution_hours")
+    if hours is None:
+        return 3
+    return max(1, math.ceil(int(hours) / 8))
+
 
 def _format_transaction(transaction: dict[str, Any]) -> str:
     """Serialize the transaction dictionary for inclusion in the prompt."""
@@ -280,6 +330,24 @@ def _build_case_note_prompt(
         escalation_required=escalation.get("escalation_required"),
         escalation_team=team if team else "(none)",
         escalation_reason=escalation.get("reason", ""),
+        transaction_json=_format_transaction(transaction),
+        resolution_summary=resolution_summary.strip() or "(none provided)",
+    )
+
+
+def _build_customer_reply_prompt(
+    transaction: dict[str, Any],
+    issue: str,
+    resolution_summary: str,
+    escalation: dict[str, Any],
+) -> str:
+    """Fill the customer-reply prompt template with grounded context."""
+    escalation_required = bool(escalation.get("escalation_required"))
+    followup_days = _followup_business_days(escalation) if escalation_required else 0
+    return CUSTOMER_REPLY_PROMPT_TEMPLATE.format(
+        issue=issue,
+        escalation_required=escalation_required,
+        followup_business_days=followup_days if escalation_required else "N/A",
         transaction_json=_format_transaction(transaction),
         resolution_summary=resolution_summary.strip() or "(none provided)",
     )
@@ -410,3 +478,34 @@ def generate_case_note(
 
     logger.info("Falling back to template case note after Gemini failure for issue %r", issue)
     return build_case_note_fallback(transaction, issue, escalation, resolution_summary)
+
+
+def generate_customer_reply(
+    transaction: dict[str, Any],
+    issue: str,
+    resolution_summary: str,
+    escalation: dict[str, Any],
+) -> str:
+    """Generate a warm customer-facing reply; falls back to a template if Gemini fails."""
+    client = _get_client()
+    if client is None:
+        logger.info("Using template customer reply for issue %r (no API key)", issue)
+        return build_customer_reply_fallback(
+            transaction, issue, resolution_summary, escalation
+        )
+
+    prompt = _build_customer_reply_prompt(transaction, issue, resolution_summary, escalation)
+
+    try:
+        text, _model_name = generate_content_with_model_fallback(client, prompt)
+        if text:
+            return text
+        logger.error("Gemini returned an empty customer reply for issue %r", issue)
+    except Exception as exc:
+        logger.exception("Gemini customer reply generation failed: %s", exc)
+
+    logger.info(
+        "Falling back to template customer reply after Gemini failure for issue %r",
+        issue,
+    )
+    return build_customer_reply_fallback(transaction, issue, resolution_summary, escalation)

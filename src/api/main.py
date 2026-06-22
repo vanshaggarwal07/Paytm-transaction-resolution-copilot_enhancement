@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from src.core.case_retriever import rebuild_case_index
+from src.core.case_retriever import retrieve_similar_cases
 from src.core.copilot_graph import COPILOT_GRAPH
 from src.core.graph_state import CopilotState
 from src.core.image_extractor import (
@@ -18,6 +20,12 @@ from src.core.image_extractor import (
     get_high_confidence_fields,
 )
 from src.core.llm_generator import is_llm_configured, is_llm_ready
+from src.core.resolution_logger import (
+    append_helpful_resolved_case,
+    get_resolution_by_id,
+    log_feedback,
+    log_resolution,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +73,27 @@ class ResolveResponse(BaseModel):
     escalation_note: Optional[str] = None
     response: str
     response_mode: str
+    customer_reply: str
     case_note: str
     groundedness_verified: Optional[bool] = None
     unsupported_claims: List[str] = []
+    resolution_id: str
+    similar_cases: List[Dict[str, Any]] = []
+
+
+class FeedbackRequest(BaseModel):
+    """Request body for post-resolution agent feedback."""
+
+    resolution_id: str
+    rating: Literal["helpful", "not_helpful"]
+    comment: str = ""
+
+
+class FeedbackResponse(BaseModel):
+    """Acknowledgement after recording agent feedback."""
+
+    status: Literal["recorded"]
+    feedback_id: str
 
 
 class ClarificationNeededResponse(BaseModel):
@@ -121,6 +147,7 @@ def _build_initial_state(request: ResolveRequest) -> CopilotState:
         "sop": None,
         "response_text": None,
         "response_mode": None,
+        "customer_reply": None,
         "escalation": None,
         "groundedness": None,
         "case_note": None,
@@ -128,7 +155,10 @@ def _build_initial_state(request: ResolveRequest) -> CopilotState:
     }
 
 
-def _build_resolve_response(final_state: CopilotState) -> ResolveResponse:
+def _build_resolve_response(
+    final_state: CopilotState,
+    resolution_id: str,
+) -> ResolveResponse:
     """Map a completed graph state into the full resolution API response."""
     reconciliation = final_state.get("reconciliation") or {}
     sop = final_state.get("sop") or {}
@@ -166,6 +196,28 @@ def _build_resolve_response(final_state: CopilotState) -> ResolveResponse:
 
     unresolved_intents = reconciliation.get("unresolved_intents") or []
 
+    complaint_text = (final_state.get("complaint_text") or "").strip()
+    agent_answers = (final_state.get("agent_answers") or "").strip()
+    if agent_answers:
+        enriched_complaint = (
+            f"{complaint_text}\n\nAgent clarification: {agent_answers}".strip()
+            if complaint_text
+            else f"Agent clarification: {agent_answers}"
+        )
+    else:
+        enriched_complaint = complaint_text
+
+    similar_cases: list[dict[str, Any]] = []
+    if enriched_complaint:
+        try:
+            similar_cases = retrieve_similar_cases(
+                enriched_complaint,
+                primary_issue,
+                top_k=3,
+            )
+        except Exception as exc:
+            logger.warning("Similar-case retrieval skipped: %s", exc)
+
     return ResolveResponse(
         issue=primary_issue,
         primary_issue=primary_issue,
@@ -181,9 +233,12 @@ def _build_resolve_response(final_state: CopilotState) -> ResolveResponse:
         escalation_note=escalation_note,
         response=final_state.get("response_text") or "",
         response_mode=response_mode,
+        customer_reply=final_state.get("customer_reply") or "",
         case_note=final_state.get("case_note") or "",
         groundedness_verified=groundedness.get("verified"),
         unsupported_claims=groundedness.get("unsupported_claims") or [],
+        resolution_id=resolution_id,
+        similar_cases=similar_cases,
     )
 
 
@@ -298,7 +353,28 @@ def resolve(
             detail="Resolution pipeline completed without a response.",
         )
 
-    return _build_resolve_response(final_state)
+    resolution_id = log_resolution(final_state)
+    return _build_resolve_response(final_state, resolution_id)
+
+
+@app.post("/feedback", response_model=FeedbackResponse)
+def feedback(request: FeedbackRequest) -> FeedbackResponse:
+    """Record agent feedback for a prior resolution."""
+    resolution_row = get_resolution_by_id(request.resolution_id)
+    if resolution_row is None:
+        raise HTTPException(status_code=404, detail="Resolution ID not found")
+
+    feedback_id = log_feedback(
+        resolution_id=request.resolution_id,
+        rating=request.rating,
+        comment=request.comment,
+    )
+
+    if request.rating == "helpful":
+        append_helpful_resolved_case(resolution_row)
+        rebuild_case_index()
+
+    return FeedbackResponse(status="recorded", feedback_id=feedback_id)
 
 
 def _build_extraction_warning(extraction: dict[str, Any]) -> Optional[str]:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -115,4 +116,50 @@ def build_case_note_fallback(
         f"\"{issue}\". The {payment_mode} payment of ₹{amount} had been open for "
         f"{age_hours} hours at the time of review.{summary_sentence} "
         f"{escalation_sentence}"
+    )
+
+
+def _followup_business_days(escalation: dict[str, Any]) -> int:
+    """Convert expected resolution hours to business days for customer messaging."""
+    hours = escalation.get("expected_resolution_hours")
+    if hours is None:
+        return 3
+    return max(1, math.ceil(int(hours) / 8))
+
+
+def build_customer_reply_fallback(
+    transaction: dict[str, Any],
+    issue: str,
+    resolution_summary: str,
+    escalation: dict[str, Any],
+) -> str:
+    """Compose a warm customer-facing reply without calling Gemini."""
+    amount = transaction.get("TXN_AMOUNT", "your payment")
+    payment_mode = transaction.get("PAYMENT_MODE", "payment")
+
+    if escalation.get("escalation_required"):
+        business_days = _followup_business_days(escalation)
+        day_label = "day" if business_days == 1 else "days"
+        closing = (
+            f"We have escalated your case for priority review and you can expect "
+            f"an update from us within {business_days} business {day_label}."
+        )
+    else:
+        closing = (
+            "Your case is now resolved, and we will continue to monitor it to "
+            "make sure everything stays on track."
+        )
+
+    summary_hint = ""
+    if resolution_summary.strip():
+        first_line = resolution_summary.strip().splitlines()[0]
+        summary_hint = f" {first_line[:160].rstrip('.')}."
+
+    return (
+        f"Thank you for contacting Paytm. We understand the inconvenience caused "
+        f"by the issue with your {payment_mode} payment of ₹{amount}. "
+        f"We have reviewed your transaction and can confirm it relates to "
+        f"{issue.lower()}.{summary_hint} "
+        f"{closing} "
+        f"If you need anything else, please reply to this message and we will help."
     )

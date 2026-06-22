@@ -4,7 +4,7 @@ import re
 
 from src.core.escalation_rules import determine_escalation
 from src.core.issue_rules import identify_issue
-from src.core.llm_generator import generate_case_note, generate_response
+from src.core.llm_generator import generate_case_note, generate_customer_reply, generate_response
 from src.core.rag_retriever import retrieve_sop
 from src.core.sop_metadata import load_sop_metadata
 from src.core.transaction_lookup import lookup_transaction
@@ -129,3 +129,50 @@ def test_generate_case_note_with_real_pipeline() -> None:
         or str(transaction["TXN_ID"]) in case_note
     )
     assert str(transaction["TXN_AMOUNT"]) in case_note or "2677" in case_note
+
+
+def test_generate_customer_reply_with_real_transaction() -> None:
+    """End-to-end smoke test: produce a customer-facing reply for a resolved case."""
+    transaction = lookup_transaction("MID000002", "ORD000002", "CUST000002")
+    assert transaction is not None
+
+    issue = identify_issue(transaction)
+    resolution_summary = (
+        "Explanation:\n"
+        "Transaction TXN000002 for order ORD000002 was a Wallet payment of ₹2677.33 "
+        "with TXN_STATUS=Success and SETTLEMENT_STATUS=PENDING. The case had been "
+        "open for 146 hours.\n\n"
+        "Next Action:\n"
+        "Verify MERCHANT_CREDITED = YES and check settlement batch inclusion.\n\n"
+        "Escalation:\n"
+        "Yes — L2 Settlement Ops (settlement delay 146h, exceeds 48h threshold)\n\n"
+        "Source:\n"
+        "settlement_delay.md"
+    )
+    escalation = {
+        "escalation_required": True,
+        "escalation_team": "L2 Settlement Ops",
+        "reason": "settlement delay 146h, exceeds 48h threshold",
+        "expected_resolution_hours": 24,
+    }
+
+    customer_reply = generate_customer_reply(
+        transaction=transaction,
+        issue=issue,
+        resolution_summary=resolution_summary,
+        escalation=escalation,
+    )
+
+    print("\n--- generate_customer_reply output ---")
+    print(f"Issue: {issue}")
+    print(f"Escalation: {escalation}")
+    print(customer_reply)
+    print("--- end output ---\n")
+
+    assert isinstance(customer_reply, str)
+    assert len(customer_reply.strip()) > 0
+    assert "2677" in customer_reply or "2,677" in customer_reply
+    assert "wallet" in customer_reply.lower()
+    assert "l2" not in customer_reply.lower()
+    assert "sop" not in customer_reply.lower()
+    assert "faiss" not in customer_reply.lower()
