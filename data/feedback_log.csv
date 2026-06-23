@@ -1,0 +1,18 @@
+FEEDBACK_ID,RESOLUTION_ID,TIMESTAMP,RATING,COMMENT
+f5ceca27-a2f2-4cc1-bde4-0e4d09c2dcd6,6e7129ca-125d-4c5f-992b-f55e9f7f379c,2026-06-19T15:31:25,not_helpful,Response was too generic.
+d83b3fb8-90c1-45a5-bd46-365a3e26a806,32df2a88-c25e-4283-8cc1-8764b0309b84,2026-06-19T15:31:25,helpful,Accurate and actionable.
+33df9133-611e-4c28-a133-86f11d2d4db4,cafe5776-2772-4671-a21d-1e299451a882,2026-06-19T15:37:33,not_helpful,Response was too generic.
+1dcb4347-0c38-43af-876c-0400e07a8b67,544a825e-31a5-4d33-8318-c2d67675c4d5,2026-06-19T15:37:33,helpful,Accurate and actionable.
+c01813aa-3f56-4a29-96d4-7e503675674d,7c3e2dd6-6a31-4020-b74b-e8569253e3d3,2026-06-19T15:40:58,not_helpful,Response was too generic.
+79367cbe-069b-478d-9279-6650e9b1c5aa,366c8f9d-ab84-4e97-9ad6-4592cb631f1c,2026-06-19T15:40:58,helpful,Accurate and actionable.
+f6d3cc26-a950-4f4a-b346-e58b01a0859a,8f6c8ac8-6f14-4d2b-b71a-ba01d61b1bf5,2026-06-19T15:47:34,helpful,Clear guidance for the settlement delay case.
+99188a43-263f-48de-bf07-4aae2dcb275b,42b70fd7-c96d-4406-8752-08f86cd62639,2026-06-21T09:24:17,not_helpful,Response was too generic.
+4775a2c6-e7fe-4f2d-a0bc-642f7ae6af29,7f108711-5200-4d91-9464-7fbe30668edb,2026-06-21T09:24:17,helpful,Accurate and actionable.
+194f465e-4391-4144-be3e-a4f4dcd83370,a8347e81-bdb2-48c1-917a-de2793971427,2026-06-21T09:29:51,helpful,
+d20cae76-7039-4547-a939-64ce1fa97259,7fc88331-26a8-424b-bf89-1feeddc2d19a,2026-06-22T11:07:38,not_helpful,Response was too generic.
+1d25c830-9ab0-4d7c-9cf7-0382bdad2562,146ef4e2-117a-494d-a5b4-571ced4a7844,2026-06-22T11:07:38,helpful,Accurate and actionable.
+1cc8bb67-46bc-43d8-a3aa-ec0d6eb6a07e,d9959bc7-995b-4f79-bacf-6b83bcc79829,2026-06-22T11:10:57,helpful,test
+5ddb9ee0-95c7-43ac-8dc1-2369c2770797,e11af81e-f482-4b37-902c-3acac359dfb9,2026-06-22T12:00:00,helpful,
+96a144b9-0763-4355-866a-89a93a4c342f,c6a4473d-6cbb-4fda-b3e0-1054502ec491,2026-06-22T17:14:21,helpful,
+28ce3be2-4520-43c4-b3ec-9678dc400063,393ce754-0d1f-4b20-9366-c974beb3bfd3,2026-06-23T11:20:28,helpful,
+7a0d7f93-a629-46cb-8749-e9095a374244,109f65fe-f239-4c0f-adf7-ac1b2e107f8c,2026-06-23T14:32:07,helpful,

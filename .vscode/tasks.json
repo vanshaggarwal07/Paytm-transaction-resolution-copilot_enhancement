@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Paytm: Start Demo",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/start_demo.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Paytm: Stop Demo",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/stop_demo.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Paytm: Open UI in Browser",
+      "type": "shell",
+      "command": "open http://localhost:8501",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
