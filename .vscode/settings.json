@@ -1,0 +1,8 @@
+{
+  "explorer.excludeGitIgnore": false,
+  "files.exclude": {
+    "**/.venv": true,
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  }
+}
