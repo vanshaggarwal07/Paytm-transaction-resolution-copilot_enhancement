@@ -40,6 +40,7 @@ _ACTIVE_MODEL: Optional[str] = None
 _client: Optional[genai.Client] = None
 _client_key: Optional[str] = None
 _llm_ready: Optional[bool] = None
+_CACHED_FLASH_MODELS: Optional[frozenset[str]] = None
 
 
 def _get_api_key() -> str:
@@ -51,7 +52,7 @@ def _get_api_key() -> str:
 
 def _get_client() -> Optional[genai.Client]:
     """Return a Gemini client, creating one when a key is available."""
-    global _client, _client_key, _llm_ready, _ACTIVE_MODEL
+    global _client, _client_key, _llm_ready, _ACTIVE_MODEL, _CACHED_FLASH_MODELS
 
     api_key = _get_api_key()
     if not api_key or api_key == "your_key_here":
@@ -59,6 +60,7 @@ def _get_client() -> Optional[genai.Client]:
         _client_key = None
         _llm_ready = None
         _ACTIVE_MODEL = None
+        _CACHED_FLASH_MODELS = None
         return None
 
     os.environ["GEMINI_API_KEY"] = api_key
@@ -66,6 +68,7 @@ def _get_client() -> Optional[genai.Client]:
     if _client is None or _client_key != api_key:
         _llm_ready = None
         _ACTIVE_MODEL = None
+        _CACHED_FLASH_MODELS = None
         try:
             _client = genai.Client(api_key=api_key)
             _client_key = api_key
@@ -97,6 +100,11 @@ def _is_quota_error(exc: Exception) -> bool:
 
 def _list_flash_model_names(client: genai.Client) -> set[str]:
     """Return flash-tier model short names advertised by the Gemini API."""
+    global _CACHED_FLASH_MODELS
+
+    if _CACHED_FLASH_MODELS is not None:
+        return set(_CACHED_FLASH_MODELS)
+
     names: set[str] = set()
     try:
         for model in client.models.list():
@@ -106,6 +114,9 @@ def _list_flash_model_names(client: genai.Client) -> set[str]:
                 names.add(short_name)
     except Exception as exc:
         logger.error("Failed to list Gemini models: %s", exc)
+        return names
+
+    _CACHED_FLASH_MODELS = frozenset(names)
     return names
 
 

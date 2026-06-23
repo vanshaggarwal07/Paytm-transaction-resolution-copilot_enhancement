@@ -51,23 +51,105 @@ def _init_session_state() -> None:
             field: "" for field, _ in SCREENSHOT_FIELDS
         },
         "screenshot_complaint": "",
-        "customer_reply_draft": "",
         "feedback_rating": None,
         "feedback_comment": "",
         "feedback_submitted": False,
         "feedback_submitted_for_resolution_id": None,
+        "_pending_clear": False,
+        "resolve_error": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
 
-def _reset_to_initial() -> None:
-    """Clear clarification state and return to the initial form."""
+def _clear_all_case_state() -> None:
+    """Reset resolution, feedback, and form state for a fresh demo case."""
+    ephemeral_prefixes = (
+        "customer_reply_draft_",
+        "case_note_",
+        "feedback_helpful_",
+        "feedback_not_helpful_",
+        "feedback_comment_",
+        "feedback_submit_",
+        "clarify_answer_",
+    )
+    for key in list(st.session_state.keys()):
+        if key.startswith(ephemeral_prefixes):
+            st.session_state.pop(key, None)
+
     st.session_state.ui_phase = UI_PHASE_INITIAL
     st.session_state.agent_answers = ""
     st.session_state.clarifying_questions = []
     st.session_state.result = None
+    st.session_state.mid = ""
+    st.session_state.order_id = ""
+    st.session_state.cust_id = ""
+    st.session_state.complaint = ""
+    st.session_state.screenshot_complaint = ""
+    st.session_state.extraction = None
+    st.session_state.extraction_failed = False
+    st.session_state.extraction_warning = None
+    st.session_state.screenshot_field_values = {
+        field: "" for field, _ in SCREENSHOT_FIELDS
+    }
+    st.session_state.feedback_rating = None
+    st.session_state.feedback_comment = ""
+    st.session_state.feedback_submitted = False
+    st.session_state.feedback_submitted_for_resolution_id = None
+    st.session_state.resolve_error = None
+
+
+def _render_resolve_error() -> None:
+    """Show a persisted resolve error until the next successful resolve or Start over."""
+    error = st.session_state.get("resolve_error")
+    if error:
+        st.error(error)
+
+
+def _persist_resolve_failure(
+    error_message: str,
+    *,
+    mid: str = "",
+    order_id: str = "",
+    cust_id: str = "",
+    complaint: str = "",
+    screenshot_field_values: dict[str, str] | None = None,
+) -> None:
+    """Store API failure in session state and rerun so the error stays visible."""
+    st.session_state.resolve_error = error_message
+    if mid:
+        st.session_state.mid = mid.strip()
+    if order_id:
+        st.session_state.order_id = order_id.strip()
+    if cust_id:
+        st.session_state.cust_id = cust_id.strip()
+    if complaint:
+        st.session_state.complaint = complaint.strip()
+    if screenshot_field_values is not None:
+        st.session_state.screenshot_field_values = screenshot_field_values
+    st.session_state.ui_phase = UI_PHASE_INITIAL
+    st.session_state.result = None
+    st.session_state.clarifying_questions = []
+    st.rerun()
+
+
+def _request_clear_and_rerun() -> None:
+    """Schedule a full reset on the next run (safe after widgets are drawn)."""
+    st.session_state._pending_clear = True
+    st.rerun()
+
+
+def _apply_pending_clear() -> None:
+    """Run a scheduled reset before any widgets are instantiated."""
+    if st.session_state.get("_pending_clear"):
+        _clear_all_case_state()
+        st.session_state._pending_clear = False
+
+
+def _reset_to_initial() -> None:
+    """Clear clarification state and return to the initial form."""
+    _clear_all_case_state()
 
 
 def _format_agent_answers(questions: list[str], answers: list[str]) -> str:
@@ -386,17 +468,22 @@ def _render_customer_reply_draft(response: dict) -> None:
     st.subheader("Customer-Facing Reply")
     st.caption("Ready to send — review before copying.")
 
+    resolution_id = response.get("resolution_id") or "session"
+    reply_from_api = (response.get("customer_reply") or "").strip()
+    widget_key = f"customer_reply_draft_{resolution_id}"
+
     col_reply, col_copy = st.columns([4, 1])
     with col_reply:
         draft = st.text_area(
             "Customer reply draft",
+            value=reply_from_api,
             height=150,
             label_visibility="collapsed",
-            key="customer_reply_draft",
+            key=widget_key,
         )
     with col_copy:
         st.markdown("**Copy**")
-        st.code(draft or "", language=None)
+        st.code(draft or reply_from_api or "", language=None)
 
 
 def _render_similar_cases(response: dict) -> None:
@@ -500,10 +587,26 @@ def render_resolution(response: dict, complaint_provided: bool) -> None:
         value=response.get("case_note", ""),
         height=140,
         label_visibility="collapsed",
+        key=f"case_note_{response.get('resolution_id', 'session')}",
     )
     _render_customer_reply_draft(response)
     _render_similar_cases(response)
     _render_feedback_section(response)
+
+
+def _render_completed_resolution(complaint_provided: bool) -> None:
+    """Show the full resolution result view with a Start over action."""
+    if st.session_state.result is None:
+        return
+
+    st.markdown("---")
+    st.caption(
+        f"Transaction **{st.session_state.mid}** / "
+        f"**{st.session_state.order_id}** / **{st.session_state.cust_id}**"
+    )
+    render_resolution(st.session_state.result, complaint_provided)
+    if st.button("Start over", type="secondary", key="start_over_from_result"):
+        _request_clear_and_rerun()
 
 
 def _handle_resolve_response(
@@ -524,12 +627,13 @@ def _handle_resolve_response(
         st.session_state.ui_phase = UI_PHASE_CLARIFICATION
         st.session_state.clarifying_questions = payload.get("clarifying_questions") or []
         st.session_state.result = None
+        st.session_state.resolve_error = None
         return
 
     st.session_state.ui_phase = UI_PHASE_INITIAL
     st.session_state.clarifying_questions = []
     st.session_state.result = payload
-    st.session_state.customer_reply_draft = payload.get("customer_reply", "") or ""
+    st.session_state.resolve_error = None
     st.session_state.feedback_rating = None
     st.session_state.feedback_comment = ""
     st.session_state.feedback_submitted = False
@@ -577,6 +681,12 @@ def _upload_content_type(uploaded_file: Any) -> str:
 
 def _render_manual_form() -> None:
     """Manual input mode: existing MID / order / customer / complaint form."""
+    if st.session_state.result is not None:
+        _render_completed_resolution(bool(st.session_state.complaint.strip()))
+        return
+
+    _render_resolve_error()
+
     with st.form("resolve_form"):
         mid = st.text_input("MID", value=st.session_state.mid, placeholder="e.g. MID000002")
         order_id = st.text_input(
@@ -599,26 +709,23 @@ def _render_manual_form() -> None:
         submitted = st.form_submit_button("Resolve")
 
     if not submitted:
-        if st.session_state.result is not None:
-            complaint_provided = bool(st.session_state.complaint.strip())
-            render_resolution(st.session_state.result, complaint_provided)
         return
 
     if not mid.strip() or not order_id.strip() or not cust_id.strip():
         st.warning("MID, Order ID, and Customer ID are required.")
         return
 
-    with st.spinner("Resolving transaction…"):
+    with st.spinner("Running resolution pipeline (typically 15–30 seconds)…"):
         payload, error_message, status_code = _call_resolve_api(mid, order_id, cust_id, complaint)
 
     if error_message:
-        st.error(error_message)
-        if status_code == 404:
-            _reset_to_initial()
-            st.session_state.mid = ""
-            st.session_state.order_id = ""
-            st.session_state.cust_id = ""
-            st.session_state.complaint = ""
+        _persist_resolve_failure(
+            error_message,
+            mid=mid,
+            order_id=order_id,
+            cust_id=cust_id,
+            complaint=complaint,
+        )
         return
 
     assert payload is not None
@@ -634,6 +741,12 @@ def _render_manual_form() -> None:
 
 def _render_upload_mode() -> None:
     """Screenshot upload mode: extract fields from image, then resolve."""
+    if st.session_state.result is not None:
+        _render_completed_resolution(bool(st.session_state.screenshot_complaint.strip()))
+        return
+
+    _render_resolve_error()
+
     uploaded_file = st.file_uploader(
         "Upload a transaction dashboard screenshot",
         type=["png", "jpg", "jpeg", "webp"],
@@ -710,7 +823,7 @@ def _render_upload_mode() -> None:
                 st.warning("MID, Order ID, and Customer ID are required.")
                 return
 
-            with st.spinner("Resolving transaction…"):
+            with st.spinner("Running resolution pipeline (typically 15–30 seconds)…"):
                 payload, error_message, status_code = _call_resolve_api(
                     mid,
                     order_id,
@@ -719,9 +832,14 @@ def _render_upload_mode() -> None:
                 )
 
             if error_message:
-                st.error(error_message)
-                if status_code == 404:
-                    _reset_to_initial()
+                _persist_resolve_failure(
+                    error_message,
+                    mid=mid,
+                    order_id=order_id,
+                    cust_id=cust_id,
+                    complaint=screenshot_complaint,
+                    screenshot_field_values=dict(st.session_state.screenshot_field_values),
+                )
                 return
 
             assert payload is not None
@@ -734,13 +852,11 @@ def _render_upload_mode() -> None:
             )
             st.rerun()
 
-    if st.session_state.result is not None and st.session_state.ui_phase == UI_PHASE_INITIAL:
-        complaint_provided = bool(st.session_state.screenshot_complaint.strip())
-        render_resolution(st.session_state.result, complaint_provided)
-
 
 def _render_clarification_form() -> None:
     """State 2: collect agent answers to clarifying questions."""
+    _render_resolve_error()
+
     st.markdown("### The assistant needs more information")
     st.caption(
         f"Transaction: **{st.session_state.mid}** / "
@@ -751,13 +867,7 @@ def _render_clarification_form() -> None:
     if not questions:
         st.warning("No clarifying questions were returned. Start over and try again.")
         if st.button("Start over", type="secondary"):
-            _reset_to_initial()
-            st.session_state.mid = ""
-            st.session_state.order_id = ""
-            st.session_state.cust_id = ""
-            st.session_state.complaint = ""
-            st.session_state.screenshot_complaint = ""
-            st.rerun()
+            _request_clear_and_rerun()
         return
 
     with st.form("clarification_form"):
@@ -780,13 +890,7 @@ def _render_clarification_form() -> None:
             start_over = st.form_submit_button("Start over")
 
     if start_over:
-        _reset_to_initial()
-        st.session_state.mid = ""
-        st.session_state.order_id = ""
-        st.session_state.cust_id = ""
-        st.session_state.complaint = ""
-        st.session_state.screenshot_complaint = ""
-        st.rerun()
+        _request_clear_and_rerun()
 
     if not submit_answers:
         return
@@ -798,7 +902,7 @@ def _render_clarification_form() -> None:
     agent_answers = _format_agent_answers(questions, answers)
     st.session_state.agent_answers = agent_answers
 
-    with st.spinner("Resolving with your answers…"):
+    with st.spinner("Running resolution pipeline (typically 15–30 seconds)…"):
         complaint = (
             st.session_state.complaint
             if st.session_state.input_mode == MODE_MANUAL
@@ -813,15 +917,13 @@ def _render_clarification_form() -> None:
         )
 
     if error_message:
-        st.error(error_message)
-        if status_code == 404:
-            _reset_to_initial()
-            st.session_state.mid = ""
-            st.session_state.order_id = ""
-            st.session_state.cust_id = ""
-            st.session_state.complaint = ""
-            st.session_state.screenshot_complaint = ""
-            st.rerun()
+        _persist_resolve_failure(
+            error_message,
+            mid=st.session_state.mid,
+            order_id=st.session_state.order_id,
+            cust_id=st.session_state.cust_id,
+            complaint=complaint,
+        )
         return
 
     assert payload is not None
@@ -843,10 +945,12 @@ def _render_clarification_form() -> None:
 def main() -> None:
     """Render the dispute resolution form and results."""
     st.set_page_config(page_title="Paytm Resolution Copilot", page_icon="💳", layout="centered")
-    st.title("Paytm Transaction Resolution Copilot")
-    st.caption("Look up a transaction and get grounded agent guidance.")
 
     _init_session_state()
+    _apply_pending_clear()
+
+    st.title("Paytm Transaction Resolution Copilot")
+    st.caption("Look up a transaction and get grounded agent guidance.")
 
     try:
         health = requests.get(API_HEALTH_URL, timeout=30).json()

@@ -37,6 +37,22 @@ logging.basicConfig(
 app = FastAPI(title="Paytm Transaction Resolution Copilot")
 
 
+@app.on_event("startup")
+def _warmup_pipeline() -> None:
+    """Preload embeddings and Gemini model list so first /resolve is faster."""
+    try:
+        from src.core.case_retriever import _initialize_case_retriever
+        from src.core.rag_retriever import _initialize_retriever
+
+        _initialize_retriever()
+        _initialize_case_retriever()
+        if is_llm_configured():
+            is_llm_ready()
+        logger.info("Pipeline warmup complete")
+    except Exception as exc:
+        logger.warning("Pipeline warmup skipped: %s", exc)
+
+
 class ResolveRequest(BaseModel):
     """Request body for the dispute resolution endpoint."""
 
