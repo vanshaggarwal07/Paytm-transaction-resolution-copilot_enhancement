@@ -1,0 +1,151 @@
+MID,MERCHANT_NAME,BUSINESS_TYPE,EMAIL,USERNAME,PASSWORD,CITY,ONBOARDED_SINCE
+MID000001,Dugar Books,Education,dugarbooks@merchant.in,dugar001,Merch@9795,Kolkata,2023-08-26
+MID000002,Prabhu Provision Store,Grocery,prabhuprovisionstore@paytm.in,prabhu002,Merch@8536,Ahmedabad,2025-05-26
+MID000003,Balan Electronics,Electronics,balanelectronics@business.in,balan003,Merch@7904,Chennai,2025-08-18
+MID000004,Chadha Cafe,Food & Beverage,chadhacafe@business.in,chadha004,Merch@8573,Bengaluru,2025-07-29
+MID000005,Vig Family Fashion Hub,Fashion,vigfamilyfashionhub@business.in,vig005,Merch@3970,Chennai,2023-10-17
+MID000006,Chandra Supermart,Grocery,chandrasupermart@gmail.in,chandra006,Merch@4142,Chennai,2024-01-24
+MID000007,Warrior & Sons Diagnostics,Healthcare,warriorsonsdiagnostics@shop.in,warrior007,Merch@6540,Mumbai,2025-05-30
+MID000008,Dubey Family Cafe,Food & Beverage,dubeyfamilycafe@shop.in,dubey008,Merch@5029,Delhi,2026-01-01
+MID000009,Borra & Sons Kirana Store,Grocery,borrasonskiranastore@merchant.in,borra009,Merch@4930,Chennai,2024-12-26
+MID000010,Karpe Family Electronics,Electronics,karpefamilyelectronics@business.in,karpe010,Merch@4327,Delhi,2025-08-29
+MID000011,Salvi TechZone India,Electronics,salvitechzoneindia@shop.in,salvi011,Merch@8586,Ahmedabad,2026-06-19
+MID000012,Mohan & Sons Fashion Hub,Fashion,mohansonsfashionhub@shop.in,mohan012,Merch@9241,Pune,2025-03-15
+MID000013,Roy TechZone India,Electronics,roytechzoneindia@gmail.in,roy013,Merch@1669,Chennai,2023-09-21
+MID000014,Narayanan Electronics,Electronics,narayananelectronics@merchant.in,narayanan014,Merch@3699,Bengaluru,2025-09-27
+MID000015,Nazareth & Sons Grocery Store,Grocery,nazarethsonsgrocerystore@shop.in,nazareth015,Merch@8185,Bengaluru,2026-06-14
+MID000016,Randhawa & Sons Garments,Fashion,randhawasonsgarments@paytm.in,randhawa016,Merch@8296,Chennai,2025-12-23
+MID000017,Butala Grocery Store,Grocery,butalagrocerystore@paytm.in,butala017,Merch@9051,Mumbai,2025-01-16
+MID000018,Lal Grocery Store,Grocery,lalgrocerystore@gmail.in,lal018,Merch@6739,Bengaluru,2026-04-04
+MID000019,Thaker Family Appliances,Electronics,thakerfamilyappliances@gmail.in,thaker019,Merch@9575,Chennai,2026-06-24
+MID000020,Dhar Holidays,Travel,dharholidays@shop.in,dhar020,Merch@7849,Chennai,2025-03-03
+MID000021,Magar Mobile Store,Electronics,magarmobilestore@gmail.in,magar021,Merch@7795,Delhi,2023-10-26
+MID000022,Chacko Family Mobile Store,Electronics,chackofamilymobilestore@business.in,chacko022,Merch@4386,Chennai,2024-08-24
+MID000023,Dewan Mobile Store,Electronics,dewanmobilestore@business.in,dewan023,Merch@8680,Mumbai,2024-04-05
+MID000024,Ram Family Appliances,Electronics,ramfamilyappliances@shop.in,ram024,Merch@9131,Delhi,2024-10-05
+MID000025,Arya Appliances,Electronics,aryaappliances@gmail.in,arya025,Merch@6211,Hyderabad,2024-01-13
+MID000026,Kapur Academy,Education,kapuracademy@paytm.in,kapur026,Merch@1083,Mumbai,2024-10-08
+MID000027,Thaker & Sons Electronics,Electronics,thakersonselectronics@paytm.in,thaker027,Merch@9921,Delhi,2024-05-03
+MID000028,Shah Family Appliances,Electronics,shahfamilyappliances@merchant.in,shah028,Merch@5220,Delhi,2024-06-07
+MID000029,Solanki Learning Centre,Education,solankilearningcentre@shop.in,solanki029,Merch@1888,Mumbai,2023-11-05
+MID000030,Srinivasan Family Clinic,Healthcare,srinivasanfamilyclinic@shop.in,srinivasan030,Merch@8913,Hyderabad,2025-11-02
+MID000031,Sheth Appliances,Electronics,shethappliances@merchant.in,sheth031,Merch@8346,Bengaluru,2024-01-10
+MID000032,Das & Sons Garments,Fashion,dassonsgarments@shop.in,das032,Merch@9119,Kolkata,2024-06-29
+MID000033,Arya & Sons Kirana Store,Grocery,aryasonskiranastore@merchant.in,arya033,Merch@8873,Kolkata,2025-02-11
+MID000034,Mohanty & Sons Provision Store,Grocery,mohantysonsprovisionstore@paytm.in,mohanty034,Merch@5577,Pune,2025-03-14
+MID000035,Gara & Sons Fashion Hub,Fashion,garasonsfashionhub@shop.in,gara035,Merch@2934,Delhi,2026-01-16
+MID000036,Shere Family Garments,Fashion,sherefamilygarments@merchant.in,shere036,Merch@7562,Chennai,2024-01-29
+MID000037,Deshpande & Sons Grocery Store,Grocery,deshpandesonsgrocerystore@shop.in,deshpande037,Merch@3536,Chennai,2024-06-13
+MID000038,Sarna & Sons Pharmacy,Healthcare,sarnasonspharmacy@gmail.in,sarna038,Merch@3964,Pune,2023-09-07
+MID000039,Karan Family Supermart,Grocery,karanfamilysupermart@paytm.in,karan039,Merch@9943,Hyderabad,2023-10-14
+MID000040,Sastry Family Kirana Store,Grocery,sastryfamilykiranastore@merchant.in,sastry040,Merch@5421,Kolkata,2025-08-08
+MID000041,Hayre Grocery Store,Grocery,hayregrocerystore@gmail.in,hayre041,Merch@4955,Hyderabad,2024-03-10
+MID000042,Johal & Sons Electronics,Electronics,johalsonselectronics@merchant.in,johal042,Merch@1272,Hyderabad,2025-05-31
+MID000043,Nagy Family Electronics,Electronics,nagyfamilyelectronics@gmail.in,nagy043,Merch@3576,Ahmedabad,2025-10-12
+MID000044,Khanna & Sons Provision Store,Grocery,khannasonsprovisionstore@business.in,khanna044,Merch@2259,Chennai,2026-05-12
+MID000045,Ahuja & Sons Textiles,Fashion,ahujasonstextiles@business.in,ahuja045,Merch@7832,Bengaluru,2024-11-25
+MID000046,Sandhu & Sons Restaurant,Food & Beverage,sandhusonsrestaurant@shop.in,sandhu046,Merch@3079,Hyderabad,2024-03-11
+MID000047,Sankaran Family Sweets,Food & Beverage,sankaranfamilysweets@paytm.in,sankaran047,Merch@5663,Ahmedabad,2026-05-08
+MID000048,Puri Family Boutique,Fashion,purifamilyboutique@shop.in,puri048,Merch@8868,Kolkata,2025-04-17
+MID000049,Misra Fashion Hub,Fashion,misrafashionhub@gmail.in,misra049,Merch@3639,Kolkata,2026-02-25
+MID000050,Parmer & Sons Restaurant,Food & Beverage,parmersonsrestaurant@merchant.in,parmer050,Merch@1538,Bengaluru,2024-02-21
+MID000051,Mangal Family Appliances,Electronics,mangalfamilyappliances@gmail.in,mangal051,Merch@7018,Bengaluru,2025-01-17
+MID000052,Dugar Family Cafe,Food & Beverage,dugarfamilycafe@merchant.in,dugar052,Merch@5342,Hyderabad,2024-03-22
+MID000053,Dhaliwal Family Supermart,Grocery,dhaliwalfamilysupermart@shop.in,dhaliwal053,Merch@5792,Chennai,2023-11-01
+MID000054,Kibe Grocery Store,Grocery,kibegrocerystore@merchant.in,kibe054,Merch@5994,Bengaluru,2026-05-09
+MID000055,Mani Mobile Store,Electronics,manimobilestore@shop.in,mani055,Merch@1710,Bengaluru,2023-10-13
+MID000056,Bahl Family Mobile Store,Electronics,bahlfamilymobilestore@paytm.in,bahl056,Merch@5223,Kolkata,2025-12-02
+MID000057,Loyal & Sons Provision Store,Grocery,loyalsonsprovisionstore@business.in,loyal057,Merch@3319,Mumbai,2025-02-20
+MID000058,Deo Appliances,Electronics,deoappliances@shop.in,deo058,Merch@1915,Ahmedabad,2024-12-06
+MID000059,Korpal Food Court,Food & Beverage,korpalfoodcourt@paytm.in,korpal059,Merch@6439,Delhi,2025-06-04
+MID000060,Chaudhari & Sons Restaurant,Food & Beverage,chaudharisonsrestaurant@gmail.in,chaudhari060,Merch@7001,Mumbai,2023-07-11
+MID000061,Kohli & Sons Electronics,Electronics,kohlisonselectronics@merchant.in,kohli061,Merch@4076,Hyderabad,2024-02-24
+MID000062,Mandal Family Kirana Store,Grocery,mandalfamilykiranastore@shop.in,mandal062,Merch@4282,Ahmedabad,2025-03-31
+MID000063,Dugar & Sons Kirana Store,Grocery,dugarsonskiranastore@paytm.in,dugar063,Merch@4199,Pune,2025-08-07
+MID000064,Anand Garments,Fashion,anandgarments@business.in,anand064,Merch@1560,Mumbai,2025-07-12
+MID000065,Chana Garments,Fashion,chanagarments@business.in,chana065,Merch@8477,Kolkata,2024-09-15
+MID000066,Loyal & Sons Provision Store,Grocery,loyalsonsprovisionstore@shop.in,loyal066,Merch@2832,Bengaluru,2026-04-22
+MID000067,Balasubramanian Fashion Hub,Fashion,balasubramanianfashionhub@paytm.in,balasubramanian067,Merch@3914,Bengaluru,2025-07-03
+MID000068,Ramanathan & Sons Fashion Hub,Fashion,ramanathansonsfashionhub@gmail.in,ramanathan068,Merch@7368,Bengaluru,2025-10-23
+MID000069,Sandal Family Electronics,Electronics,sandalfamilyelectronics@shop.in,sandal069,Merch@7134,Hyderabad,2026-04-10
+MID000070,Master Family Electronics,Electronics,masterfamilyelectronics@business.in,master070,Merch@8210,Kolkata,2023-07-23
+MID000071,Grewal Provision Store,Grocery,grewalprovisionstore@shop.in,grewal071,Merch@8358,Chennai,2025-03-25
+MID000072,Sani Family Appliances,Electronics,sanifamilyappliances@gmail.in,sani072,Merch@8845,Chennai,2024-06-17
+MID000073,Sethi Supermart,Grocery,sethisupermart@gmail.in,sethi073,Merch@8426,Mumbai,2024-12-26
+MID000074,Kakar Family Electronics,Electronics,kakarfamilyelectronics@merchant.in,kakar074,Merch@7498,Mumbai,2025-01-23
+MID000075,Khare Mobile Store,Electronics,kharemobilestore@paytm.in,khare075,Merch@3143,Chennai,2025-06-22
+MID000076,Kant Textiles,Fashion,kanttextiles@gmail.in,kant076,Merch@1036,Chennai,2026-04-23
+MID000077,Krish Family TechZone India,Electronics,krishfamilytechzoneindia@business.in,krish077,Merch@7842,Mumbai,2026-05-27
+MID000078,Bobal Family Electronics,Electronics,bobalfamilyelectronics@merchant.in,bobal078,Merch@6178,Chennai,2024-01-19
+MID000079,Pingle & Sons Appliances,Electronics,pinglesonsappliances@shop.in,pingle079,Merch@6137,Chennai,2024-05-31
+MID000080,Rana Family Boutique,Fashion,ranafamilyboutique@merchant.in,rana080,Merch@1718,Mumbai,2023-07-17
+MID000081,Lal & Sons Textiles,Fashion,lalsonstextiles@merchant.in,lal081,Merch@9190,Chennai,2025-12-06
+MID000082,Johal & Sons Provision Store,Grocery,johalsonsprovisionstore@paytm.in,johal082,Merch@3080,Delhi,2024-07-28
+MID000083,Mahal Family Mobile Store,Electronics,mahalfamilymobilestore@business.in,mahal083,Merch@1211,Kolkata,2024-02-11
+MID000084,Bhandari & Sons Garments,Fashion,bhandarisonsgarments@paytm.in,bhandari084,Merch@1248,Bengaluru,2023-12-08
+MID000085,Acharya Academy,Education,acharyaacademy@paytm.in,acharya085,Merch@9822,Bengaluru,2025-10-01
+MID000086,Raj Family Fashion Hub,Fashion,rajfamilyfashionhub@gmail.in,raj086,Merch@8171,Pune,2024-09-03
+MID000087,Ganesh Mobile Store,Electronics,ganeshmobilestore@business.in,ganesh087,Merch@2748,Ahmedabad,2025-09-16
+MID000088,Kaur Textiles,Fashion,kaurtextiles@business.in,kaur088,Merch@4011,Hyderabad,2026-01-02
+MID000089,Dugar & Sons Garments,Fashion,dugarsonsgarments@shop.in,dugar089,Merch@9418,Kolkata,2025-01-02
+MID000090,Vig Family Garments,Fashion,vigfamilygarments@business.in,vig090,Merch@2876,Pune,2025-05-09
+MID000091,Manne & Sons Sweets,Food & Beverage,mannesonssweets@gmail.in,manne091,Merch@2449,Chennai,2026-01-09
+MID000092,Walia Grocery Store,Grocery,waliagrocerystore@paytm.in,walia092,Merch@8102,Chennai,2024-04-27
+MID000093,Doctor Electronics,Electronics,doctorelectronics@business.in,doctor093,Merch@6417,Delhi,2024-12-19
+MID000094,Yohannan Family Pharmacy,Healthcare,yohannanfamilypharmacy@shop.in,yohannan094,Merch@6302,Mumbai,2024-07-31
+MID000095,Babu Fashion Hub,Fashion,babufashionhub@business.in,babu095,Merch@4552,Bengaluru,2024-10-27
+MID000096,Nigam Provision Store,Grocery,nigamprovisionstore@business.in,nigam096,Merch@1493,Pune,2025-02-01
+MID000097,Chaudhry Provision Store,Grocery,chaudhryprovisionstore@gmail.in,chaudhry097,Merch@3497,Pune,2025-12-27
+MID000098,Sur Boutique,Fashion,surboutique@gmail.in,sur098,Merch@8692,Kolkata,2024-05-22
+MID000099,Naik & Sons Electronics,Electronics,naiksonselectronics@business.in,naik099,Merch@8907,Mumbai,2025-10-15
+MID000100,Prashad & Sons Holidays,Travel,prashadsonsholidays@merchant.in,prashad100,Merch@3132,Bengaluru,2024-01-31
+MID000101,Chada Grocery Store,Grocery,chadagrocerystore@paytm.in,chada101,Merch@1068,Chennai,2024-05-05
+MID000102,Vala Provision Store,Grocery,valaprovisionstore@business.in,vala102,Merch@2983,Delhi,2026-02-24
+MID000103,Chaudry Family Academy,Education,chaudryfamilyacademy@merchant.in,chaudry103,Merch@3183,Pune,2024-01-23
+MID000104,Kibe Grocery Store,Grocery,kibegrocerystore@gmail.in,kibe104,Merch@2283,Kolkata,2023-09-11
+MID000105,Mani Garments,Fashion,manigarments@gmail.in,mani105,Merch@5472,Bengaluru,2023-11-09
+MID000106,Menon Mobile Store,Electronics,menonmobilestore@gmail.in,menon106,Merch@7739,Kolkata,2023-08-09
+MID000107,Gole Mobile Store,Electronics,golemobilestore@paytm.in,gole107,Merch@3891,Kolkata,2024-03-09
+MID000108,Chacko Supermart,Grocery,chackosupermart@shop.in,chacko108,Merch@9300,Bengaluru,2025-04-16
+MID000109,Mital Family Electronics,Electronics,mitalfamilyelectronics@merchant.in,mital109,Merch@2719,Hyderabad,2025-04-26
+MID000110,Lata Grocery Store,Grocery,latagrocerystore@business.in,lata110,Merch@6513,Chennai,2024-11-07
+MID000111,Ram Family Boutique,Fashion,ramfamilyboutique@gmail.in,ram111,Merch@7635,Bengaluru,2026-01-29
+MID000112,Krish Mobile Store,Electronics,krishmobilestore@shop.in,krish112,Merch@6319,Delhi,2023-08-16
+MID000113,Sinha Family Grocery Store,Grocery,sinhafamilygrocerystore@gmail.in,sinha113,Merch@9498,Kolkata,2023-10-15
+MID000114,Devi & Sons Provision Store,Grocery,devisonsprovisionstore@business.in,devi114,Merch@3857,Hyderabad,2025-06-05
+MID000115,Sarma Family Clinic,Healthcare,sarmafamilyclinic@shop.in,sarma115,Merch@7144,Kolkata,2025-02-17
+MID000116,Char & Sons Electronics,Electronics,charsonselectronics@business.in,char116,Merch@8529,Bengaluru,2024-01-30
+MID000117,Bhasin & Sons Holidays,Travel,bhasinsonsholidays@business.in,bhasin117,Merch@8890,Kolkata,2023-09-07
+MID000118,Srivastava Family Grocery Store,Grocery,srivastavafamilygrocerystore@business.in,srivastava118,Merch@7512,Chennai,2024-04-29
+MID000119,Raja Garments,Fashion,rajagarments@shop.in,raja119,Merch@4414,Pune,2023-11-13
+MID000120,Issac Family Textiles,Fashion,issacfamilytextiles@shop.in,issac120,Merch@9726,Hyderabad,2023-10-14
+MID000121,Goswami Family Provision Store,Grocery,goswamifamilyprovisionstore@business.in,goswami121,Merch@8334,Mumbai,2023-08-19
+MID000122,Krish Family Electronics,Electronics,krishfamilyelectronics@gmail.in,krish122,Merch@1214,Hyderabad,2023-09-02
+MID000123,Lall & Sons Supermart,Grocery,lallsonssupermart@gmail.in,lall123,Merch@9197,Delhi,2023-08-25
+MID000124,Hari & Sons Pharmacy,Healthcare,harisonspharmacy@gmail.in,hari124,Merch@3132,Pune,2024-01-17
+MID000125,Mane Family Boutique,Fashion,manefamilyboutique@merchant.in,mane125,Merch@9997,Hyderabad,2023-12-27
+MID000126,Upadhyay TechZone India,Electronics,upadhyaytechzoneindia@gmail.in,upadhyay126,Merch@7502,Mumbai,2024-06-22
+MID000127,Samra Family Electronics,Electronics,samrafamilyelectronics@business.in,samra127,Merch@4512,Chennai,2024-11-30
+MID000128,Agarwal Food Court,Food & Beverage,agarwalfoodcourt@shop.in,agarwal128,Merch@8368,Mumbai,2025-05-11
+MID000129,Agrawal & Sons Provision Store,Grocery,agrawalsonsprovisionstore@paytm.in,agrawal129,Merch@9588,Kolkata,2026-02-03
+MID000130,Hans Appliances,Electronics,hansappliances@paytm.in,hans130,Merch@3925,Ahmedabad,2024-02-25
+MID000131,Mann & Sons Diagnostics,Healthcare,mannsonsdiagnostics@paytm.in,mann131,Merch@9771,Chennai,2023-07-11
+MID000132,Chakrabarti & Sons Supermart,Grocery,chakrabartisonssupermart@business.in,chakrabarti132,Merch@1047,Kolkata,2024-02-07
+MID000133,Thakkar Family Supermart,Grocery,thakkarfamilysupermart@shop.in,thakkar133,Merch@7300,Mumbai,2023-09-08
+MID000134,Uppal & Sons Medical Store,Healthcare,uppalsonsmedicalstore@paytm.in,uppal134,Merch@8715,Chennai,2026-03-10
+MID000135,Kala Family Electronics,Electronics,kalafamilyelectronics@shop.in,kala135,Merch@6475,Chennai,2026-06-14
+MID000136,Jaggi & Sons Appliances,Electronics,jaggisonsappliances@gmail.in,jaggi136,Merch@1082,Kolkata,2025-04-19
+MID000137,Dhingra & Sons Boutique,Fashion,dhingrasonsboutique@business.in,dhingra137,Merch@4533,Mumbai,2025-10-19
+MID000138,Lala Family Supermart,Grocery,lalafamilysupermart@gmail.in,lala138,Merch@4701,Hyderabad,2026-02-27
+MID000139,Padmanabhan TechZone India,Electronics,padmanabhantechzoneindia@gmail.in,padmanabhan139,Merch@5166,Ahmedabad,2023-07-10
+MID000140,Goda Family Mobile Store,Electronics,godafamilymobilestore@paytm.in,goda140,Merch@5596,Delhi,2025-07-23
+MID000141,Parikh Family Textiles,Fashion,parikhfamilytextiles@shop.in,parikh141,Merch@8107,Delhi,2025-05-30
+MID000142,Acharya Grocery Store,Grocery,acharyagrocerystore@merchant.in,acharya142,Merch@6978,Ahmedabad,2025-09-08
+MID000143,Deep Grocery Store,Grocery,deepgrocerystore@business.in,deep143,Merch@1484,Ahmedabad,2024-11-24
+MID000144,Dara Fashion Hub,Fashion,darafashionhub@gmail.in,dara144,Merch@4665,Delhi,2023-07-14
+MID000145,Garde Supermart,Grocery,gardesupermart@gmail.in,garde145,Merch@1325,Ahmedabad,2025-02-02
+MID000146,Cheema & Sons TechZone India,Electronics,cheemasonstechzoneindia@paytm.in,cheema146,Merch@2336,Ahmedabad,2025-09-28
+MID000147,Devi & Sons Provision Store,Grocery,devisonsprovisionstore@gmail.in,devi147,Merch@9438,Delhi,2026-06-17
+MID000148,Som Family Textiles,Fashion,somfamilytextiles@shop.in,som148,Merch@4738,Kolkata,2023-10-24
+MID000149,Bhavsar & Sons Mobile Store,Electronics,bhavsarsonsmobilestore@shop.in,bhavsar149,Merch@6202,Kolkata,2023-07-20
+MID000150,Dhaliwal Supermart,Grocery,dhaliwalsupermart@business.in,dhaliwal150,Merch@1631,Bengaluru,2023-12-31
