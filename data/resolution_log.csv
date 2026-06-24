@@ -1219,3 +1219,112 @@ Yes. ESCALATION_TEAM: L2 Acquiring Ops. REASON: amount debited but merchant not 
 
 Source:
 amount_debited_but_merchant_not_credited.md",The transaction TXN000010 for 2401.88 via Card remained unsettled after 111 hours despite a successful bank debit. The case required escalation to L2 Acquiring Ops because the failure to credit the merchant exceeded the 24-hour threshold. Manual reconciliation was initiated to resolve the status discrepancy.
+89ff8e7b-0f78-4124-823d-f2650e510aa3,2026-06-24T16:50:39,MID000010,ORD000010,CUST000010,Amount Debited but Merchant Not Credited,Money deducted but merchant never received payment,,amount_debited_but_merchant_not_credited.md,True,L2 Acquiring Ops,False,"Explanation:
+The customer’s transaction (TXN000010) for 2401.88 was successfully debited from their account, but the merchant has not received the credit. This transaction occurred 111 hours ago, which exceeds the standard T+1 settlement window for merchant credits.
+
+Next Action:
+Inform the customer that the investigation is ongoing and the payment discrepancy requires manual reconciliation. Do not promise an instant reversal. Raise an internal reconciliation ticket against the acquiring bank file to resolve the ledger mismatch, and log the case ID in the CRM as per SOP.
+
+Escalation:
+Yes. L2 Acquiring Ops. The transaction has been debited but not credited for 111 hours, which exceeds the 24-hour threshold for manual intervention.
+
+Source:
+amount_debited_but_merchant_not_credited.md
+Historical reference: Case CASE000053","The customer reported that 2401.88 was debited via card for transaction TXN000010, but the merchant was not credited. As the case age reached 111 hours and exceeded the 24-hour threshold, the ticket was escalated to L2 Acquiring Ops for manual reconciliation."
+396bec95-7ff2-4ab6-a202-d5615c68cbdc,2026-06-24T16:50:48,MID000002,ORD000002,CUST000002,Settlement Delay,The card issuer raised a chargeback dispute on a previously successful transaction. The merchant reports a reversal debit from their settlement account and the customer claims an unauthorised transaction.,"The customer confirmed the transaction was authorised — this is a settlement delay issue, not a dispute.",settlement_delay.md,True,L2 Settlement Ops,False,"Explanation:
+Transaction TXN000002 for 2677.33 remains in a PENDING settlement status despite being successful. The transaction has been pending for 146 hours, which exceeds the standard T+1 settlement window and the T+2 business day threshold.
+
+Next Action:
+Verify the merchant's settlement configuration for any hold flags or account mismatches. Gather the required documentation, including the merchant's MID, last 4 digits of the settlement account, IFSC, and a screenshot of the pending status from the merchant dashboard, to provide to the L2 team. 
+
+Escalation:
+Yes. L2 Settlement Ops. Reason: settlement delay 146h, exceeds 48h threshold.
+
+Source:
+settlement_delay.md
+Historical reference: Case CASE000054","Transaction TXN000002 for 2677.33 via Wallet remained in a pending settlement status for 146 hours. This duration exceeded the 48-hour threshold, necessitating an escalation to the L2 Settlement Ops team for further review of the merchant configuration."
+dc9579ec-fda9-4850-b556-ca3ddf611893,2026-06-24T16:50:56,MID000002,ORD000002,CUST000002,Settlement Delay,The card issuer raised a chargeback dispute on a previously successful transaction. The merchant reports a reversal debit from their settlement account and the customer claims an unauthorised transaction.,"The customer confirmed the transaction was authorised — this is a settlement delay issue, not a dispute.",settlement_delay.md,True,L2 Settlement Ops,False,"Explanation:
+Transaction TXN000002 for 2677.33 remains in a PENDING settlement status despite the transaction status showing as successful and the merchant credited internally. The settlement delay has reached 146 hours, which exceeds the standard T+2 business day settlement window.
+
+Next Action:
+Please gather the merchant’s MID, the last 4 digits of the settlement account, the IFSC, and the settlement batch reference number from the internal console. Provide these details alongside the transaction list to the L2 team to investigate why the funds have not transitioned to the merchant's bank account. Consistent with similar previously resolved cases, do not attempt to manually credit the merchant while this investigation is ongoing.
+
+Escalation:
+Yes.
+ESCALATION_TEAM: L2 Settlement Ops
+REASON: settlement delay 146h, exceeds 48h threshold
+
+Source:
+settlement_delay.md
+Historical reference: Case CASE000054","The transaction TXN000002 for 2677.33 via Wallet remained in a pending settlement status for 146 hours. This delay exceeded the 48-hour threshold, necessitating an immediate escalation to the L2 Settlement Ops team. All relevant merchant details were prepared for further investigation to determine why the funds failed to transition to the bank account."
+a517090f-1af4-4af4-af64-38a6ed90bbaa,2026-06-24T16:50:56,MID000002,ORD000002,CUST000002,Settlement Delay,"Settlement for this successful Wallet payment is still pending on my dashboard, but I also contacted my bank because I don't recognise this transaction at all.",,settlement_delay.md,True,L2 Settlement Ops,True,"Explanation:
+Settlement for this Wallet payment is still pending on the merchant dashboard.
+
+Next Action:
+Verify settlement batch inclusion and merchant bank configuration.
+
+Escalation:
+Yes — L2 Settlement Ops.
+
+Source:
+settlement_delay.md
+",MID000002 / ORD000002: Settlement Delay — funds not yet reached bank; secondary Chargeback / Dispute signal flagged for review.
+43bb94a2-c8f0-4dc6-bb6e-ddcd56b3130d,2026-06-24T16:50:56,MID000010,ORD000010,CUST000010,Amount Debited but Merchant Not Credited,Money deducted but merchant never received payment,,amount_debited_but_merchant_not_credited.md,True,L2 Acquiring Ops,False,"Explanation:
+Amount was debited from the customer but the merchant was not credited.
+
+Next Action:
+Verify bank transfer status and merchant settlement configuration.
+
+Escalation:
+No escalation required.
+
+Source:
+amount_debited_merchant_not_credited.md
+",MID000010 / ORD000010: Amount Debited but Merchant Not Credited — customer reports merchant never received payment.
+660f2392-7375-4e80-8cfa-411850d77378,2026-06-24T16:51:27,MID000010,ORD000010,CUST000010,Amount Debited but Merchant Not Credited,Money deducted but merchant never received payment,,amount_debited_but_merchant_not_credited.md,True,L2 Acquiring Ops,True,"Explanation:
+Amount was debited from the customer but the merchant was not credited.
+
+Next Action:
+Verify bank transfer status and merchant settlement configuration.
+
+Escalation:
+No escalation required.
+
+Source:
+amount_debited_merchant_not_credited.md
+",MID000010 / ORD000010: Amount Debited but Merchant Not Credited — customer reports merchant never received payment.
+42124d48-6ea8-4d99-ad4d-d042dd5a6b9a,2026-06-24T16:51:27,MID000010,ORD000010,CUST000010,Amount Debited but Merchant Not Credited,Money deducted but merchant never received payment,,amount_debited_but_merchant_not_credited.md,True,L2 Acquiring Ops,True,"Explanation:
+Amount was debited from the customer but the merchant was not credited.
+
+Next Action:
+Verify bank transfer status and merchant settlement configuration.
+
+Escalation:
+No escalation required.
+
+Source:
+amount_debited_merchant_not_credited.md
+",MID000010 / ORD000010: Amount Debited but Merchant Not Credited — customer reports merchant never received payment.
+00e5a12f-c3cf-4c25-8a54-2c7472652970,2026-06-24T16:51:44,MID000017,ORD000017,CUST000017,UPI Pending,My UPI payment has been pending for hours and not completed,,upi_pending.md,False,,False,"Explanation:
+The transaction (TXN000017) for ₹20,502.67 is currently in a pending state with both the platform and the bank. The transaction has been pending for 23 hours, which falls within the standard 24–48 hour resolution window for UPI payment processing.
+
+Next Action:
+Inform the customer that the transaction is within the standard processing timeframe and advise them not to retry the payment for this specific order to avoid duplicate debits. Continue to monitor the transaction status via internal switch queries every 4–6 hours until the 48-hour window is reached or the status updates.
+
+Escalation:
+No.
+
+Source:
+upi_pending.md
+Historical reference: Case CASE000064","The agent reviewed a UPI Pending issue for transaction TXN000017, with a payment amount of ₹20,502.67 and a case age of 23 hours. The transaction was pending with both the platform and the bank. Escalation was not required as the case age was within the 48-hour threshold for UPI pending transactions."
+2bea6e61-e9c4-4979-a34a-e685d3794961,2026-06-24T16:52:12,MID000010,ORD000010,CUST000010,Amount Debited but Merchant Not Credited,Money deducted but merchant never received payment,,amount_debited_but_merchant_not_credited.md,True,L2 Acquiring Ops,True,"Explanation:
+The customer’s transaction of 2401.88 (TXN000010) was successful at the bank level; however, the merchant has not received credit for this payment. As the transaction occurred 111 hours ago, it has exceeded the standard T+1 settlement window without a successful merchant credit.
+
+Next Action:
+Inform the customer that the payment has been confirmed as debited and the case is being referred for manual reconciliation. Do not promise an instant reversal. Collect the customer's bank statement or passbook screenshot showing the debit and provide the transaction receipt (TXN_ID: TXN000010) to the internal team for further investigation.
+
+Escalation:
+Yes. The issue is being escalated to L2 Acquiring Ops because the transaction amount was debited, the merchant was not credited, and the case has exceeded the 24-hour threshold (111 hours total).
+
+Source:
+amount_debited_but_merchant_not_credited.md","The customer's payment of 2401.88 via Card was successfully debited but not credited to the merchant. This case reached an age of 111 hours, which exceeded the 24-hour resolution threshold. The ticket was escalated to L2 Acquiring Ops for manual reconciliation due to the pending merchant credit status."
