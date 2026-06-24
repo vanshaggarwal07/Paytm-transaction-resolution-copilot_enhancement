@@ -320,6 +320,8 @@ def node_retrieve(state: CopilotState) -> dict:
 
 def node_generate(state: CopilotState) -> dict:
     """Fill response_text and customer_reply."""
+    from src.core.case_retriever import retrieve_similar_cases
+
     sop = state["sop"]
     sop_metadata = load_sop_metadata(sop["file_path"])
     escalation = determine_escalation(state["transaction"], sop_metadata)
@@ -327,12 +329,26 @@ def node_generate(state: CopilotState) -> dict:
         **escalation,
         "expected_resolution_hours": sop_metadata.get("expected_resolution_hours"),
     }
+    enriched_complaint = _enriched_complaint_text(state)
+
+    similar_cases: list[dict[str, Any]] = []
+    try:
+        similar_cases = retrieve_similar_cases(
+            complaint_text=enriched_complaint,
+            rule_based_issue=state["rule_based_issue"],
+            top_k=3,
+        )
+    except Exception as exc:
+        logger.warning("Similar case retrieval failed: %s", exc)
+        similar_cases = []
+
     response_text, response_mode = generate_response(
         transaction=state["transaction"],
         issue=state["rule_based_issue"],
         sop=sop,
         escalation=escalation,
-        complaint=_enriched_complaint_text(state),
+        complaint=enriched_complaint,
+        similar_cases=similar_cases,
     )
     customer_reply = generate_customer_reply(
         transaction=state["transaction"],
@@ -344,6 +360,7 @@ def node_generate(state: CopilotState) -> dict:
         "response_text": response_text,
         "response_mode": response_mode,
         "customer_reply": customer_reply,
+        "similar_cases": similar_cases,
     }
 
 
