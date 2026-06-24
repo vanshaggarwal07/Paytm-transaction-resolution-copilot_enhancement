@@ -1,0 +1,54 @@
+# Project: Paytm Transaction Resolution Copilot
+
+## What this is
+A GenAI support copilot prototype that helps agents resolve payment disputes.
+It combines: (1) a deterministic rule engine that reads synthetic transaction
+data and identifies the issue, (2) a RAG layer that retrieves the matching
+SOP from a small knowledge base using embeddings + FAISS, and (3) an LLM
+layer (Google Gemini via the google-genai SDK) that explains the issue and
+recommends next steps, grounded only in the retrieved SOP and transaction facts.
+
+## Tech stack
+Python 3.11 in a .venv, pandas for tabular data, sentence-transformers
+(all-MiniLM-L6-v2) for embeddings, faiss-cpu for the vector index, the
+google-genai SDK (model: gemini-3.5-flash) for LLM calls, FastAPI + uvicorn
+for the API, Streamlit for the UI, pytest for tests.
+
+## Folder structure (do not deviate without asking)
+data/transactions.csv, data/complaints.csv, data/sops/*.md,
+src/issue_taxonomy.py, src/data_generation/, src/core/transaction_lookup.py,
+src/core/issue_rules.py, src/core/rag_retriever.py, src/core/llm_generator.py,
+src/api/main.py, src/ui/app.py, tests/
+
+## Coding standards
+- Every public function gets type hints and a one-line docstring.
+- Handle errors explicitly with try/except and meaningful messages — never
+  let a raw stack trace reach the API response or the Streamlit UI.
+- Keep functions small and pure where possible. The only allowed module-level
+  state is the cached CSV load and the cached embedding index, both clearly
+  named and commented as caches.
+- Use Python's logging module, not print(), except in the one-off "show me
+  the output" scripts I explicitly ask for.
+
+## Non-negotiable rules
+- src/issue_taxonomy.py is the single source of truth for issue names. Every
+  other module imports from there — never hardcode a different issue string.
+- The LLM only ever explains facts it's given. It never decides transaction
+  status, escalation, or issue identification — that's the rule engine's job.
+  Flag it loudly if you catch yourself writing a prompt that asks the LLM to
+  "decide" instead of "explain."
+- Never hardcode the Gemini API key anywhere. Load it from .env via
+  python-dotenv under the exact variable name GEMINI_API_KEY — the
+  google-genai client reads this automatically, so never pass it manually.
+- Never modify .env, .gitignore, or requirements.txt without telling me what
+  changed and why. Never commit anything without me reviewing it first.
+- After writing or editing code, run it (or the relevant test) and show me
+  the real output before saying a step is done.
+- Escalation decisions (yes/no, and which team) are computed exclusively by
+  deterministic code reading structured SOP metadata. The LLM never
+  determines escalation — it only narrates a decision that has already been
+  computed and passed to it as a fact.
+- Each SOP file has two parts: YAML frontmatter for structured,
+  machine-readable fields, and a Markdown body for prose used in RAG/LLM
+  grounding. Code that needs a fact (threshold, team name) reads frontmatter;
+  code that needs language to ground a response reads the body only.

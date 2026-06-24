@@ -2,7 +2,7 @@
 
 A GenAI support copilot prototype that helps payment-support agents resolve disputes. It combines three layers:
 
-1. **Rule engine** — reads synthetic transaction CSV data and deterministically identifies the issue type
+1. **Rule engine** — reads synthetic transaction CSV data and deterministically identifies the issue type.
 2. **RAG retriever** — embeds SOP markdown files with `sentence-transformers` and retrieves the best match via FAISS.
 3. **LLM explainer** — uses Google Gemini to explain what happened and recommend next steps, grounded only in transaction facts and the retrieved SOP.
 
@@ -78,7 +78,7 @@ This writes:
 
 SOP markdown files are already in `data/sops/` (10 files, not generated).
 
-> **Note:** Regenerated CSVs are written to `data/` after running the generate scripts above.
+> **Note:** `data/*.csv` is in `.gitignore` so CSVs won't appear in git, but they should be visible in Cursor after removing them from `.cursorignore`.
 
 ## Run the demo (one command)
 

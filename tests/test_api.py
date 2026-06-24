@@ -520,3 +520,45 @@ def test_feedback_helpful_appends_resolved_case_row() -> None:
     assert response.status_code == 200
     assert response.json()["status"] == "recorded"
     assert _count_resolved_case_rows() == before_count + 1
+
+
+def test_resolve_includes_similar_cases_in_response() -> None:
+    """POST /resolve returns a similar_cases list for UPI pending complaints."""
+    response = client.post(
+        "/resolve",
+        json={
+            "mid": "MID000017",
+            "order_id": "ORD000017",
+            "cust_id": "CUST000017",
+            "complaint": "My UPI payment has been pending for hours and not completed",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload.get("status") != "clarification_needed"
+    assert "similar_cases" in payload
+    assert isinstance(payload["similar_cases"], list)
+
+
+def test_resolve_succeeds_when_case_retrieval_fails() -> None:
+    """Generation continues when similar-case retrieval raises an exception."""
+    with patch(
+        "src.core.case_retriever.retrieve_similar_cases",
+        side_effect=Exception("case index unavailable"),
+    ):
+        response = client.post(
+            "/resolve",
+            json={
+                "mid": "MID000010",
+                "order_id": "ORD000010",
+                "cust_id": "CUST000010",
+                "complaint": "Money deducted but merchant never received payment",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload.get("status") != "clarification_needed"
+    assert isinstance(payload["response"], str)
+    assert len(payload["response"].strip()) > 0

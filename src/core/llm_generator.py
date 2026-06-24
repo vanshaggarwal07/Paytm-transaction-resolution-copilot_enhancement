@@ -199,6 +199,14 @@ def is_llm_ready() -> bool:
         return False
 
 
+HISTORICAL_CASE_ENTRY_TEMPLATE = """--- Case {n} (Similarity: {score:.0%}) ---
+Issue: {issue}
+Case ID: {case_id}
+Resolution: {resolution_summary}
+Outcome: {outcome}"""
+
+EMPTY_HISTORICAL_CASES_MESSAGE = "No similar historical cases available."
+
 RESPONSE_PROMPT_TEMPLATE = """You are a Paytm payment support copilot helping a human agent.
 Your job is to EXPLAIN facts already determined by the rule engine — never to decide
 transaction status or issue identification on your own.
@@ -210,6 +218,15 @@ STRICT RULES:
 - Use ONLY the facts provided below. Never invent or assume any transaction detail,
   timeline, amount, status, or policy that is not explicitly given.
 - Do not contradict the identified issue supplied to you.
+- SOP Guidance is authoritative. Follow it precisely.
+- Similar Resolved Cases are examples of how past agents handled comparable issues.
+  Use them to inform tone and resolution approach where relevant.
+- If a historical case contradicts the SOP or the transaction facts, ignore the
+  historical case entirely — transaction facts and SOP always take priority.
+- Never copy a resolution verbatim from a historical case.
+- When historical cases were helpful, you may reference them naturally:
+  "Consistent with similar previously resolved cases..." but only when the SOP already
+  supports that direction.
 - For the Escalation section: state Yes or No exactly matching ESCALATION_REQUIRED below.
   If Yes, name ESCALATION_TEAM exactly as given. Include the escalation REASON as context.
   Do not override or second-guess the pre-computed escalation decision.
@@ -225,7 +242,9 @@ Escalation:
 (Yes or No per ESCALATION_REQUIRED — if Yes, name ESCALATION_TEAM and briefly cite REASON.)
 
 Source:
-(The SOP file name you used.)
+(The SOP file name you used. If a historical case meaningfully informed your response,
+ you may add an optional line: "Historical reference: Case <CASE_ID>". Omit this line
+ when historical cases were not helpful.)
 
 IDENTIFIED ISSUE:
 {issue}
@@ -235,11 +254,14 @@ ESCALATION DECISION (pre-computed — do not change):
 - ESCALATION_TEAM: {escalation_team}
 - REASON: {escalation_reason}
 
-TRANSACTION RECORD:
-{transaction_json}
+=== TRANSACTION FACTS ===
+{transaction_block}
 
-RETRIEVED SOP ({sop_filename}):
-{sop_content}
+=== SOP GUIDANCE (AUTHORITATIVE) ===
+{sop_block}
+
+=== SIMILAR RESOLVED CASES (SUPPORTING EVIDENCE ONLY) ===
+{historical_block}
 
 CUSTOMER COMPLAINT (optional, may be empty):
 {complaint}
@@ -364,23 +386,49 @@ def _build_customer_reply_prompt(
     )
 
 
+def format_historical_cases_block(similar_cases: list[dict[str, Any]] | None) -> str:
+    """Format similar historical cases for injection into the response prompt."""
+    if not similar_cases:
+        return EMPTY_HISTORICAL_CASES_MESSAGE
+
+    entries: list[str] = []
+    for index, case in enumerate(similar_cases[:3], start=1):
+        score = float(case.get("similarity_score", 0.0))
+        entries.append(
+            HISTORICAL_CASE_ENTRY_TEMPLATE.format(
+                n=index,
+                score=score,
+                issue=case.get("ISSUE", ""),
+                case_id=case.get("CASE_ID", ""),
+                resolution_summary=case.get("RESOLUTION_SUMMARY", ""),
+                outcome=case.get("OUTCOME", ""),
+            )
+        )
+    return "\n\n".join(entries)
+
+
 def _build_prompt(
     transaction: dict[str, Any],
     issue: str,
     sop: dict[str, Any],
     escalation: dict[str, Any],
     complaint: str,
+    similar_cases: list[dict[str, Any]] | None = None,
 ) -> str:
     """Fill the response prompt template with grounded context."""
+    if similar_cases is None:
+        similar_cases = []
+
     team = escalation.get("escalation_team")
+    sop_filename = _sop_filename(sop)
     return RESPONSE_PROMPT_TEMPLATE.format(
         issue=issue,
         escalation_required=escalation.get("escalation_required"),
         escalation_team=team if team else "(none)",
         escalation_reason=escalation.get("reason", ""),
-        transaction_json=_format_transaction(transaction),
-        sop_filename=_sop_filename(sop),
-        sop_content=sop["content"],
+        transaction_block=_format_transaction(transaction),
+        sop_block=f"{sop_filename}\n\n{sop['content']}",
+        historical_block=format_historical_cases_block(similar_cases),
         complaint=complaint or "(none provided)",
     )
 
@@ -438,8 +486,12 @@ def generate_response(
     sop: dict[str, Any],
     escalation: dict[str, Any],
     complaint: str = "",
+    similar_cases: list[dict[str, Any]] | None = None,
 ) -> Tuple[str, str]:
     """Generate agent guidance; returns (response_text, response_mode)."""
+    if similar_cases is None:
+        similar_cases = []
+
     client = _get_client()
     if client is None:
         logger.info("Using SOP-based fallback response for issue %r (no API key)", issue)
@@ -448,7 +500,9 @@ def generate_response(
             "sop_fallback",
         )
 
-    prompt = _build_prompt(transaction, issue, sop, escalation, complaint)
+    prompt = _build_prompt(
+        transaction, issue, sop, escalation, complaint, similar_cases=similar_cases
+    )
 
     try:
         text, _model_name = generate_content_with_model_fallback(client, prompt)

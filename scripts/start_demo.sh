@@ -96,7 +96,7 @@ echo "  API: http://localhost:8000/health"
 echo ""
 echo "  Logs: .demo/api.log  .demo/streamlit.log"
 echo "  Stop: ./scripts/stop_demo.sh"
-echo "        or VS Code task \"Paytm: Stop Demo\""
+echo "        or Cursor task \"Paytm: Stop Demo\""
 echo ""
 
 if [[ "$(uname -s)" == "Darwin" ]]; then

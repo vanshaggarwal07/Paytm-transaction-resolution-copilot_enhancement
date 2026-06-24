@@ -34,6 +34,7 @@ class CopilotState(TypedDict):
     response_text: Optional[str]
     response_mode: Optional[str]
     customer_reply: Optional[str]
+    similar_cases: list[dict]
     escalation: Optional[dict]
     groundedness: Optional[dict]
     case_note: Optional[str]
