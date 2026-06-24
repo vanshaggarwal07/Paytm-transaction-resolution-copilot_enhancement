@@ -10,8 +10,9 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CUSTOMERS_PATH = Path("data/customers.csv")
-DEFAULT_TRANSACTIONS_PATH = Path("data/transactions.csv")
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CUSTOMERS_PATH = _PROJECT_ROOT / "data" / "customers.csv"
+DEFAULT_TRANSACTIONS_PATH = _PROJECT_ROOT / "data" / "transactions.csv"
 
 _CUSTOMERS_DF: pd.DataFrame | None = None
 _TRANSACTIONS_DF: pd.DataFrame | None = None

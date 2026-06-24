@@ -1175,3 +1175,47 @@ Yes. ESCALATION_TEAM: L2 Acquiring Ops. REASON: amount debited but merchant not 
 
 Source:
 amount_debited_but_merchant_not_credited.md","The customer was debited 2401.88 via card for transaction TXN000010, but the merchant remained uncredited. This case reached 111 hours of age, which exceeded the 24-hour threshold for standard resolution. Consequently, the ticket was escalated to the L2 Acquiring Ops team for manual reconciliation."
+518991ce-0135-4485-9ff6-ff7a658bebe4,2026-06-24T15:37:56,MID000010,ORD000010,CUST000010,Amount Debited but Merchant Not Credited,Money deducted but merchant never received payment,,amount_debited_but_merchant_not_credited.md,True,L2 Acquiring Ops,False,"Explanation:
+The transaction (TXN000010) was successful at the bank level with a debit of 2401.88, but the merchant has not received the credit. The transaction occurred 111 hours ago, meaning the standard T+1 settlement window has passed without the funds reaching the merchant.
+
+Next Action:
+Verify the transaction details in the CRM and confirm the payment record. Inform the customer that the payment has been debited but not yet credited to the merchant, and provide the expected resolution window of 3–7 business days for manual reconciliation. Do not promise an instant reversal. Log the case ID in the CRM as per the SOP.
+
+Escalation:
+Yes. The case is escalated to L2 Acquiring Ops because the amount was debited, the merchant was not credited, and the transaction has exceeded the 24-hour threshold (111 hours total).
+
+Source:
+amount_debited_but_merchant_not_credited.md","The transaction TXN000010 for 2401.88 via Card remained uncredited to the merchant despite a successful bank debit status. As the case age reached 111 hours, this transaction exceeded the 24-hour settlement threshold. Consequently, the ticket was escalated to the L2 Acquiring Ops team for manual reconciliation."
+c60c1f91-9adb-402f-9d14-e73657b530f0,2026-06-24T15:38:31,MID000010,ORD000010,CUST000010,Amount Debited but Merchant Not Credited,Money deducted but merchant never received payment,,amount_debited_but_merchant_not_credited.md,True,L2 Acquiring Ops,False,"Explanation:
+The customer’s transaction of 2401.88 (TXN000010) was successfully debited from their account, but the merchant has not received the credit. Although the transaction occurred 111 hours ago, the settlement status remains inactive and the merchant credit flag is set to NO.
+
+Next Action:
+Verify that the transaction details have been logged in the CRM. Since the T+1 settlement window has passed, refrain from promising the customer an instant reversal. Instead, inform the customer that a manual reconciliation process has been initiated and provide them with the expected resolution timeline of 3–7 business days for acquirer adjustments.
+
+Escalation:
+Yes. This case is escalated to L2 Acquiring Ops because the transaction was debited but not credited to the merchant, and the 111-hour duration exceeds the 24-hour threshold for standard settlement.
+
+Source:
+amount_debited_but_merchant_not_credited.md","The transaction of 2401.88 made via Card was debited from the customer's account but failed to credit the merchant. This case reached 111 hours of age, which exceeded the 24-hour threshold for standard settlement. Consequently, the ticket was escalated to the L2 Acquiring Ops team for manual reconciliation as required."
+0b6ea3f2-4aa2-4bb9-af3b-9c827c48c1a9,2026-06-24T15:50:34,MID000010,ORD000010,CUST000010,Amount Debited but Merchant Not Credited,Money deducted but merchant never received payment,,amount_debited_but_merchant_not_credited.md,True,L2 Acquiring Ops,True,"Explanation:
+The customer’s transaction of ₹2401.88 (TXN000010) was successful at the bank level, but the merchant has not been credited. The transaction is currently 111 hours old, which exceeds the standard T+1 settlement window and indicates a ledger mismatch.
+
+Next Action:
+Verify the customer's bank debit proof and the merchant's payment dashboard status. Since the T+1 settlement window has passed, do not promise an instant reversal; instead, inform the customer that the case requires manual reconciliation and provide an expected resolution timeline of 3–7 business days. Log the case ID in the CRM accordingly.
+
+Escalation:
+Yes. ESCALATION_TEAM: L2 Acquiring Ops. REASON: amount debited but merchant not credited 111h, exceeds 24h threshold.
+
+Source:
+amount_debited_but_merchant_not_credited.md","The customer reported an issue where 2401.88 was debited via card but the merchant was not credited. As the case age reached 111 hours and exceeded the 24-hour threshold, the ticket was escalated to L2 Acquiring Ops for manual reconciliation."
+4d3151ac-40a5-4d83-b59b-555286397f23,2026-06-24T15:53:49,MID000010,ORD000010,CUST000010,Amount Debited but Merchant Not Credited,Money deducted but merchant never received payment,,amount_debited_but_merchant_not_credited.md,True,L2 Acquiring Ops,False,"Explanation:
+The transaction (TXN000010) shows a successful debit of 2401.88 from the customer's card, but the merchant has not received the credit. This discrepancy has persisted for 111 hours, which exceeds the standard T+1 settlement window.
+
+Next Action:
+Inform the customer that the payment debit is confirmed but the merchant credit is missing. Do not promise an instant reversal. Advise the customer that the case requires manual reconciliation and provide a resolution window of up to 10 business days. Log the case ID in the CRM as per SOP requirements.
+
+Escalation:
+Yes. ESCALATION_TEAM: L2 Acquiring Ops. REASON: amount debited but merchant not credited 111h, exceeds 24h threshold.
+
+Source:
+amount_debited_but_merchant_not_credited.md",The transaction TXN000010 for 2401.88 via Card remained unsettled after 111 hours despite a successful bank debit. The case required escalation to L2 Acquiring Ops because the failure to credit the merchant exceeded the 24-hour threshold. Manual reconciliation was initiated to resolve the status discrepancy.
