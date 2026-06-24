@@ -42,6 +42,47 @@
         "panel": "shared"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Paytm: Start Customer Portal",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/start_customer_portal.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Paytm: Stop Customer Portal",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/stop_customer_portal.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Paytm: Open Customer Portal",
+      "type": "shell",
+      "command": "open http://127.0.0.1:8502",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "problemMatcher": []
     }
   ]
 }

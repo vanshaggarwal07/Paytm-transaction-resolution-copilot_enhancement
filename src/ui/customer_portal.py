@@ -6,7 +6,6 @@ import logging
 from datetime import datetime
 from typing import Any
 
-import pandas as pd
 import requests
 import streamlit as st
 
@@ -21,11 +20,105 @@ PAGE_LOGIN = "login"
 PAGE_DASHBOARD = "dashboard"
 PAGE_RESOLUTION = "resolution"
 
-STATUS_LABELS = {
-    "Success": "✅ Success",
-    "Pending": "⏳ Pending",
-    "Failed": "❌ Failed",
-}
+PAYTM_BLUE = "#00B9F1"
+PAGE_BACKGROUND = "#F8F9FA"
+
+PORTAL_CSS = f"""
+<style>
+  .stApp {{
+    background-color: {PAGE_BACKGROUND};
+  }}
+  [data-testid="stSidebar"] {{
+    background-color: #ffffff;
+    border-right: 1px solid #e6ebf2;
+  }}
+  [data-testid="stSidebar"] h3 {{
+    color: {PAYTM_BLUE};
+    margin-bottom: 0.25rem;
+  }}
+  div.stButton > button {{
+    border-radius: 10px !important;
+    font-weight: 600;
+    border: 1px solid #d7dee8;
+  }}
+  div.stButton > button[kind="primary"],
+  div.stButton > button[data-testid="stBaseButton-primary"] {{
+    background-color: {PAYTM_BLUE} !important;
+    border-color: {PAYTM_BLUE} !important;
+    color: #ffffff !important;
+  }}
+  div.stButton > button[kind="primary"]:hover,
+  div.stButton > button[data-testid="stBaseButton-primary"]:hover {{
+    background-color: #00a5d8 !important;
+    border-color: #00a5d8 !important;
+  }}
+  .portal-brand {{
+    color: {PAYTM_BLUE};
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }}
+  .portal-card {{
+    background: #ffffff;
+    border: 1px solid #e6ebf2;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }}
+  .portal-txn-table {{
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    border: 1px solid #e6ebf2;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }}
+  .portal-txn-table th {{
+    background: #f1f5f9;
+    color: #334155;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }}
+  .portal-txn-table td {{
+    padding: 0.85rem 1rem;
+    border-top: 1px solid #eef2f7;
+    color: #1f2937;
+    font-size: 0.95rem;
+  }}
+  .status-pill {{
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }}
+  .status-pill-success {{
+    background-color: #D1FAE5;
+    color: #065F46;
+  }}
+  .status-pill-pending {{
+    background-color: #FEF3C7;
+    color: #92400E;
+  }}
+  .status-pill-failed {{
+    background-color: #FEE2E2;
+    color: #991B1B;
+  }}
+  .portal-reply-box {{
+    background-color: #ffffff;
+    border: 1px solid #e6ebf2;
+    border-left: 4px solid {PAYTM_BLUE};
+    border-radius: 10px;
+    padding: 1.25rem;
+    line-height: 1.6;
+    color: #1f2937;
+  }}
+</style>
+"""
 
 
 def _init_session_state() -> None:
@@ -46,6 +139,21 @@ def _init_session_state() -> None:
             st.session_state[key] = value
 
 
+def _inject_portal_styles() -> None:
+    """Inject shared portal CSS on every page render."""
+    st.markdown(PORTAL_CSS, unsafe_allow_html=True)
+
+
+def _mask_email(email: str) -> str:
+    """Mask an email as first 3 characters + *** + @domain."""
+    normalized = str(email).strip()
+    if "@" not in normalized:
+        return "***"
+    local_part, domain = normalized.split("@", 1)
+    prefix = local_part[:3] if len(local_part) >= 3 else local_part
+    return f"{prefix}***@{domain}"
+
+
 def _format_timestamp(raw_timestamp: str) -> str:
     """Format an ISO timestamp as DD MMM YYYY HH:MM."""
     try:
@@ -63,22 +171,61 @@ def _format_amount(raw_amount: Any) -> str:
         return str(raw_amount)
 
 
-def _build_transaction_table(transactions: list[dict[str, Any]]) -> pd.DataFrame:
-    """Return a customer-facing transaction table with display columns only."""
-    rows: list[dict[str, str]] = []
+def _status_pill_html(status: str) -> str:
+    """Return an HTML status badge pill for the given transaction status."""
+    css_class = {
+        "Success": "status-pill-success",
+        "Pending": "status-pill-pending",
+        "Failed": "status-pill-failed",
+    }.get(status, "status-pill-pending")
+    label = {
+        "Success": "Success",
+        "Pending": "Pending",
+        "Failed": "Failed",
+    }.get(status, status)
+    return f'<span class="status-pill {css_class}">{label}</span>'
+
+
+def _render_transactions_table(transactions: list[dict[str, Any]]) -> None:
+    """Render the customer transaction history as an HTML table with status pills."""
+    rows: list[str] = []
     for txn in transactions:
         status = str(txn.get("TXN_STATUS", ""))
         rows.append(
-            {
-                "Order ID": str(txn.get("ORDER_ID", "")),
-                "Date & Time": _format_timestamp(str(txn.get("TXN_TIMESTAMP", ""))),
-                "Amount": _format_amount(txn.get("TXN_AMOUNT")),
-                "Payment Mode": str(txn.get("PAYMENT_MODE", "")),
-                "Status": status,
-                "Status Label": STATUS_LABELS.get(status, status),
-            }
+            "<tr>"
+            f"<td>{txn.get('ORDER_ID', '')}</td>"
+            f"<td>{_format_timestamp(str(txn.get('TXN_TIMESTAMP', '')))}</td>"
+            f"<td>{_format_amount(txn.get('TXN_AMOUNT'))}</td>"
+            f"<td>{txn.get('PAYMENT_MODE', '')}</td>"
+            f"<td>{_status_pill_html(status)}</td>"
+            "</tr>"
         )
-    return pd.DataFrame(rows)
+
+    table_html = (
+        '<table class="portal-txn-table">'
+        "<thead><tr>"
+        "<th>Order ID</th>"
+        "<th>Date &amp; Time</th>"
+        "<th>Amount</th>"
+        "<th>Payment Mode</th>"
+        "<th>Status</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>"
+    )
+    st.markdown(table_html, unsafe_allow_html=True)
+
+
+def _transaction_metrics(
+    transactions: list[dict[str, Any]],
+) -> tuple[int, int, int]:
+    """Return total, successful, and pending/failed transaction counts."""
+    total = len(transactions)
+    successful = sum(1 for txn in transactions if txn.get("TXN_STATUS") == "Success")
+    pending_or_failed = sum(
+        1 for txn in transactions if txn.get("TXN_STATUS") in ("Pending", "Failed")
+    )
+    return total, successful, pending_or_failed
 
 
 def _sign_out() -> None:
@@ -162,53 +309,72 @@ def _fetch_resolution(transaction: dict[str, Any], complaint: str) -> tuple[str,
     return "ok", data
 
 
+def _render_sidebar() -> None:
+    """Render authenticated navigation in the sidebar."""
+    customer = st.session_state.get("customer") or {}
+    with st.sidebar:
+        st.markdown(
+            f'<p class="portal-brand">💳 Paytm</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(f"### {customer.get('NAME', 'Customer')}")
+        st.markdown(
+            f"<small>{_mask_email(str(customer.get('EMAIL', '')))}</small>",
+            unsafe_allow_html=True,
+        )
+        st.divider()
+        if st.button("My Transactions", width="stretch"):
+            _clear_resolution_state()
+            st.session_state["page"] = PAGE_DASHBOARD
+            st.rerun()
+        if st.button("Sign Out", width="stretch"):
+            _sign_out()
+
+
 def _render_login_page() -> None:
     """Render the customer sign-in page."""
     st.markdown(
         """
-        <div style="text-align:center; padding: 1rem 0 0.5rem 0;">
-            <h1 style="margin-bottom: 0.25rem;">💳 Paytm Customer Portal</h1>
+        <div style="text-align:center; padding: 2rem 0 1rem 0;">
+            <h1 class="portal-brand" style="font-size:2rem;">💳 Paytm Customer Portal</h1>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown("### Welcome back")
 
-    username = st.text_input("USERNAME", key="login_username")
-    password = st.text_input("PASSWORD", type="password", key="login_password")
+    _, login_col, _ = st.columns([1, 1.2, 1])
+    with login_col:
+        st.markdown("### Welcome back")
+        username = st.text_input("USERNAME", key="login_username")
+        password = st.text_input("PASSWORD", type="password", key="login_password")
 
-    if st.button("Sign In", type="primary", width="stretch"):
-        customer = authenticate_customer(username.strip(), password)
-        if customer is None:
-            st.error("Invalid username or password. Please try again.")
-            return
+        if st.button("Sign In", type="primary", width="stretch"):
+            customer = authenticate_customer(username.strip(), password)
+            if customer is None:
+                st.error("Invalid username or password. Please try again.")
+                return
 
-        st.session_state["customer"] = {
-            key: value for key, value in customer.items() if key != "PASSWORD"
-        }
-        st.session_state["page"] = PAGE_DASHBOARD
-        st.session_state["selected_order_id"] = None
-        st.session_state["complaint_text"] = ""
-        st.session_state["transactions"] = []
-        _clear_resolution_state()
-        st.rerun()
+            st.session_state["customer"] = {
+                key: value for key, value in customer.items() if key != "PASSWORD"
+            }
+            st.session_state["page"] = PAGE_DASHBOARD
+            st.session_state["selected_order_id"] = None
+            st.session_state["complaint_text"] = ""
+            st.session_state["transactions"] = []
+            _clear_resolution_state()
+            st.rerun()
 
 
 def _render_dashboard_page() -> None:
     """Render transaction history and complaint submission."""
+    _render_sidebar()
+
     customer = st.session_state.get("customer") or {}
     cust_id = customer.get("CUST_ID", "")
     customer_name = customer.get("NAME", "Customer")
 
-    header_left, header_right = st.columns([5, 1])
-    with header_left:
-        st.header(f"Hello, {customer_name}")
-        st.subheader("Your recent transactions")
-    with header_right:
-        st.write("")
-        if st.button("Sign Out"):
-            _sign_out()
-            st.rerun()
+    st.header(f"Hello, {customer_name}")
+    st.subheader("Your recent transactions")
 
     transactions = get_customer_transactions(cust_id)
     st.session_state["transactions"] = transactions
@@ -216,8 +382,16 @@ def _render_dashboard_page() -> None:
         st.info("No transactions found.")
         return
 
-    table = _build_transaction_table(transactions)
-    st.dataframe(table, width="stretch", hide_index=True)
+    total_count, success_count, pending_failed_count = _transaction_metrics(transactions)
+    metric_col_1, metric_col_2, metric_col_3 = st.columns(3)
+    with metric_col_1:
+        st.metric("Total Transactions", total_count)
+    with metric_col_2:
+        st.metric("Successful", success_count)
+    with metric_col_3:
+        st.metric("Pending or Failed", pending_failed_count)
+
+    _render_transactions_table(transactions)
 
     st.markdown("### Raise a Complaint")
     order_ids = [str(txn.get("ORDER_ID", "")) for txn in transactions if txn.get("ORDER_ID")]
@@ -228,7 +402,7 @@ def _render_dashboard_page() -> None:
         key="complaint_text_input",
     )
 
-    if st.button("Submit Complaint", type="primary"):
+    if st.button("Submit Complaint", type="primary", width="stretch"):
         st.session_state["selected_order_id"] = selected_order_id
         st.session_state["complaint_text"] = complaint_text.strip()
         _clear_resolution_state()
@@ -276,18 +450,15 @@ def _render_customer_reply(customer_reply: str) -> None:
         .replace("\n", "<br>")
     )
     st.markdown(
-        f"""
-        <div style="background-color:#f7f9fc; border:1px solid #e6ebf2;
-                    border-radius:10px; padding:1.25rem; line-height:1.6;">
-            {escaped}
-        </div>
-        """,
+        f'<div class="portal-reply-box">{escaped}</div>',
         unsafe_allow_html=True,
     )
 
 
 def _render_resolution_page() -> None:
     """Render the customer resolution page."""
+    _render_sidebar()
+
     if not _ensure_resolution_loaded():
         return
 
@@ -367,6 +538,7 @@ def main() -> None:
         layout="wide",
     )
     _init_session_state()
+    _inject_portal_styles()
 
     page = st.session_state.get("page", PAGE_LOGIN)
     if page != PAGE_LOGIN and not st.session_state.get("customer"):
