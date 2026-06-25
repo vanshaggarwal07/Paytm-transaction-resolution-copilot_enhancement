@@ -20,11 +20,59 @@ PAGE_LOGIN = "login"
 PAGE_DASHBOARD = "dashboard"
 PAGE_RESOLUTION = "resolution"
 
-PAYTM_BLUE = "#00B9F1"
+CUSTOMER_PRIMARY_COLOR = "#00B9F1"
+CUSTOMER_PRIMARY_LIGHT = "#33ccf5"
+CUSTOMER_PRIMARY_DARK = "#0090c4"
 PAGE_BACKGROUND = "#F8F9FA"
 
-PORTAL_CSS = f"""
+LOGIN_CSS = f"""
 <style>
+  :root {{
+    --portal-primary: {CUSTOMER_PRIMARY_COLOR};
+    --portal-primary-light: {CUSTOMER_PRIMARY_LIGHT};
+    --portal-primary-dark: {CUSTOMER_PRIMARY_DARK};
+  }}
+  .portal-login-card {{
+    background: linear-gradient(
+      135deg,
+      var(--portal-primary-dark) 0%,
+      var(--portal-primary) 55%,
+      var(--portal-primary-light) 100%
+    );
+    padding: 2.5rem 2rem;
+    border-radius: 16px;
+    color: white;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 12px 32px rgba(0, 144, 196, 0.25);
+  }}
+  .portal-login-card h1 {{
+    color: white !important;
+    margin-bottom: 0.25rem;
+  }}
+  .portal-login-card p {{
+    color: rgba(255, 255, 255, 0.92);
+    margin-bottom: 0;
+  }}
+  div[data-testid="stFormSubmitButton"] > button {{
+    border-radius: 10px !important;
+    font-weight: 600;
+  }}
+  div[data-testid="stFormSubmitButton"] > button[kind="primaryFormSubmit"],
+  div[data-testid="stFormSubmitButton"] > button[data-testid="stBaseButton-primaryFormSubmit"] {{
+    background-color: {CUSTOMER_PRIMARY_COLOR} !important;
+    border-color: {CUSTOMER_PRIMARY_COLOR} !important;
+    color: #ffffff !important;
+  }}
+</style>
+"""
+
+DASHBOARD_CSS = f"""
+<style>
+  :root {{
+    --portal-primary: {CUSTOMER_PRIMARY_COLOR};
+    --portal-primary-light: {CUSTOMER_PRIMARY_LIGHT};
+    --portal-primary-dark: {CUSTOMER_PRIMARY_DARK};
+  }}
   .stApp {{
     background-color: {PAGE_BACKGROUND};
   }}
@@ -33,7 +81,7 @@ PORTAL_CSS = f"""
     border-right: 1px solid #e6ebf2;
   }}
   [data-testid="stSidebar"] h3 {{
-    color: {PAYTM_BLUE};
+    color: {CUSTOMER_PRIMARY_COLOR};
     margin-bottom: 0.25rem;
   }}
   div.stButton > button {{
@@ -43,8 +91,8 @@ PORTAL_CSS = f"""
   }}
   div.stButton > button[kind="primary"],
   div.stButton > button[data-testid="stBaseButton-primary"] {{
-    background-color: {PAYTM_BLUE} !important;
-    border-color: {PAYTM_BLUE} !important;
+    background-color: {CUSTOMER_PRIMARY_COLOR} !important;
+    border-color: {CUSTOMER_PRIMARY_COLOR} !important;
     color: #ffffff !important;
   }}
   div.stButton > button[kind="primary"]:hover,
@@ -53,7 +101,7 @@ PORTAL_CSS = f"""
     border-color: #00a5d8 !important;
   }}
   .portal-brand {{
-    color: {PAYTM_BLUE};
+    color: {CUSTOMER_PRIMARY_COLOR};
     font-weight: 700;
     letter-spacing: 0.02em;
   }}
@@ -111,7 +159,7 @@ PORTAL_CSS = f"""
   .portal-reply-box {{
     background-color: #ffffff;
     border: 1px solid #e6ebf2;
-    border-left: 4px solid {PAYTM_BLUE};
+    border-left: 4px solid {CUSTOMER_PRIMARY_COLOR};
     border-radius: 10px;
     padding: 1.25rem;
     line-height: 1.6;
@@ -126,6 +174,7 @@ def _init_session_state() -> None:
     defaults: dict[str, Any] = {
         "page": PAGE_LOGIN,
         "customer": None,
+        "login_error": None,
         "transactions": [],
         "selected_order_id": None,
         "complaint_text": "",
@@ -139,9 +188,9 @@ def _init_session_state() -> None:
             st.session_state[key] = value
 
 
-def _inject_portal_styles() -> None:
-    """Inject shared portal CSS on every page render."""
-    st.markdown(PORTAL_CSS, unsafe_allow_html=True)
+def _inject_portal_styles(*, login_page: bool = False) -> None:
+    """Inject portal CSS — login page uses merchant-style header without light bg override."""
+    st.markdown(LOGIN_CSS if login_page else DASHBOARD_CSS, unsafe_allow_html=True)
 
 
 def _mask_email(email: str) -> str:
@@ -332,37 +381,45 @@ def _render_sidebar() -> None:
 
 
 def _render_login_page() -> None:
-    """Render the customer sign-in page."""
+    """Render the customer sign-in experience."""
     st.markdown(
         """
-        <div style="text-align:center; padding: 2rem 0 1rem 0;">
-            <h1 class="portal-brand" style="font-size:2rem;">💳 Paytm Customer Portal</h1>
+        <div class="portal-login-card">
+            <h1>🧑‍💼 Paytm Customer Portal</h1>
+            <p>Manage your transactions and payment support</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    _, login_col, _ = st.columns([1, 1.2, 1])
-    with login_col:
-        st.markdown("### Welcome back")
-        username = st.text_input("USERNAME", key="login_username")
-        password = st.text_input("PASSWORD", type="password", key="login_password")
+    col_left, col_center, col_right = st.columns([1, 1.2, 1])
+    with col_center:
+        st.markdown("### Sign in to your account")
+        st.caption("Use your customer username and password to access the dashboard.")
 
-        if st.button("Sign In", type="primary", width="stretch"):
+        with st.form("customer_login_form", clear_on_submit=False):
+            username = st.text_input("USERNAME", placeholder="e.g. henry010")
+            password = st.text_input("PASSWORD", type="password", placeholder="Enter password")
+            submitted = st.form_submit_button("Sign In", use_container_width=True, type="primary")
+
+        if submitted:
             customer = authenticate_customer(username.strip(), password)
             if customer is None:
-                st.error("Invalid username or password. Please try again.")
-                return
+                st.session_state["login_error"] = "Invalid username or password. Please try again."
+            else:
+                st.session_state["customer"] = {
+                    key: value for key, value in customer.items() if key != "PASSWORD"
+                }
+                st.session_state["page"] = PAGE_DASHBOARD
+                st.session_state["selected_order_id"] = None
+                st.session_state["complaint_text"] = ""
+                st.session_state["transactions"] = []
+                st.session_state["login_error"] = None
+                _clear_resolution_state()
+                st.rerun()
 
-            st.session_state["customer"] = {
-                key: value for key, value in customer.items() if key != "PASSWORD"
-            }
-            st.session_state["page"] = PAGE_DASHBOARD
-            st.session_state["selected_order_id"] = None
-            st.session_state["complaint_text"] = ""
-            st.session_state["transactions"] = []
-            _clear_resolution_state()
-            st.rerun()
+        if st.session_state.get("login_error"):
+            st.error(st.session_state["login_error"])
 
 
 def _render_dashboard_page() -> None:
@@ -536,14 +593,16 @@ def main() -> None:
         page_title="Paytm Customer Portal",
         page_icon="💳",
         layout="wide",
+        initial_sidebar_state="collapsed",
     )
     _init_session_state()
-    _inject_portal_styles()
 
     page = st.session_state.get("page", PAGE_LOGIN)
     if page != PAGE_LOGIN and not st.session_state.get("customer"):
         st.session_state["page"] = PAGE_LOGIN
         page = PAGE_LOGIN
+
+    _inject_portal_styles(login_page=(page == PAGE_LOGIN))
 
     if page == PAGE_LOGIN:
         _render_login_page()
