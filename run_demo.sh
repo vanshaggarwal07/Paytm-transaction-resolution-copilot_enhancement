@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -e
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
@@ -9,46 +9,54 @@ if [[ ! -d ".venv" ]]; then
   exit 1
 fi
 
-# shellcheck disable=SC1091
+echo "Starting Paytm Resolution Copilot Platform..."
+
+# Activate venv
 source .venv/bin/activate
 export PYTHONPATH=.
-# Avoid corporate proxy blocking Hugging Face model cache / Gemini API calls.
 export NO_PROXY='*'
 export no_proxy='*'
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy 2>/dev/null || true
 
-API_PID=""
-
-cleanup() {
-  if [[ -n "$API_PID" ]] && kill -0 "$API_PID" 2>/dev/null; then
-    echo ""
-    echo "Stopping FastAPI (pid $API_PID)…"
-    kill "$API_PID" 2>/dev/null || true
-    wait "$API_PID" 2>/dev/null || true
-  fi
-}
-
-trap cleanup EXIT INT TERM
-
-echo "Starting FastAPI on http://localhost:8000 …"
-uvicorn src.api.main:app --host 127.0.0.1 --port 8000 &
+# Start FastAPI
+echo "Starting API on port 8000..."
+uvicorn src.api.main:app --host 0.0.0.0 --port 8000 &
 API_PID=$!
 
-for _ in {1..30}; do
-  if curl -sf http://127.0.0.1:8000/health >/dev/null 2>&1; then
-    break
-  fi
-  sleep 1
-done
+# Wait for API to be ready
+sleep 3
 
-if ! curl -sf http://127.0.0.1:8000/health >/dev/null 2>&1; then
-  echo "FastAPI failed to start. Check logs above."
-  exit 1
-fi
+# Start all four Streamlit portals
+echo "Starting Landing Page on port 8500..."
+STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+  streamlit run src/ui/landing.py --server.port 8500 \
+  --server.headless true &
 
-echo "FastAPI is ready."
-echo "Starting Streamlit on http://localhost:8501 …"
-echo "Press Ctrl+C to stop both servers."
+echo "Starting Agent Portal on port 8501..."
+STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+  streamlit run src/ui/app.py --server.port 8501 \
+  --server.headless true &
+
+echo "Starting Customer Portal on port 8502..."
+STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+  streamlit run src/ui/customer_portal.py --server.port 8502 \
+  --server.headless true &
+
+echo "Starting Merchant Portal on port 8503..."
+STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+  streamlit run src/ui/merchant_portal.py --server.port 8503 \
+  --server.headless true &
+
 echo ""
+echo "Platform is running:"
+echo "  Landing Page  → http://localhost:8500"
+echo "  Agent Portal  → http://localhost:8501"
+echo "  Customer      → http://localhost:8502"
+echo "  Merchant      → http://localhost:8503"
+echo "  API docs      → http://localhost:8000/docs"
+echo ""
+echo "Press Ctrl+C to stop all services."
 
-STREAMLIT_BROWSER_GATHER_USAGE_STATS=false streamlit run src/ui/app.py --server.headless true --server.port 8501
+# Keep running, kill all children on exit
+trap "kill 0" EXIT
+wait
