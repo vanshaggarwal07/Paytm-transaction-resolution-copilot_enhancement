@@ -77,6 +77,7 @@ def evaluate_retrieval(complaints_path: Path = DEFAULT_COMPLAINTS_PATH) -> None:
 
     semantic_correct = 0
     hybrid_correct = 0
+    intent_hits = 0
     per_issue_semantic: dict[str, int] = defaultdict(int)
     per_issue_hybrid: dict[str, int] = defaultdict(int)
     per_issue_total: dict[str, int] = defaultdict(int)
@@ -98,6 +99,8 @@ def evaluate_retrieval(complaints_path: Path = DEFAULT_COMPLAINTS_PATH) -> None:
         if index > 0:
             time.sleep(INTENT_EXTRACTION_DELAY_SECONDS)
         extracted_intents = extract_intents(complaint_text)
+        if true_issue in _intent_names(extracted_intents):
+            intent_hits += 1
         transaction = _transaction_for_order(order_id)
 
         hybrid_results = retrieve_sop_hybrid(
@@ -134,6 +137,7 @@ def evaluate_retrieval(complaints_path: Path = DEFAULT_COMPLAINTS_PATH) -> None:
 
     semantic_precision = (semantic_correct / total) * 100 if total else 0.0
     hybrid_precision = (hybrid_correct / total) * 100 if total else 0.0
+    intent_hit_rate = (intent_hits / total) * 100 if total else 0.0
 
     print("=" * 72)
     print("SEMANTIC ONLY — retrieve_sop precision@1")
@@ -157,6 +161,12 @@ def evaluate_retrieval(complaints_path: Path = DEFAULT_COMPLAINTS_PATH) -> None:
         issue_total = per_issue_total[issue]
         issue_precision = (per_issue_hybrid[issue] / issue_total) * 100 if issue_total else 0.0
         print(f"  {issue}: {issue_precision:.1f}% ({per_issue_hybrid[issue]}/{issue_total})")
+    print()
+
+    print("=" * 72)
+    print("INTENT EXTRACTION — true issue in extracted intents")
+    print("=" * 72)
+    print(f"Intent extraction hit rate: {intent_hit_rate:.1f}% ({intent_hits}/{total})")
     print()
 
     print("=" * 72)
